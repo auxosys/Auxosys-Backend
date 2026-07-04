@@ -7,10 +7,12 @@ router.get("/admin", careerController.getAllCareers);
 router.get("/:id", careerController.getCareerById);
 router.post("/", careerController.createCareer);
 router.put("/:id", careerController.updateCareer);
+router.patch("/:id/toggle", careerController.toggleJobStatus);
 router.delete("/:id", careerController.deleteCareer);
 
 router.post("/:id/apply", careerController.applyForJob);
 router.get("/applications/all", careerController.getAllApplications);
 router.get("/applicants/:jobId", careerController.getApplicantsByJobId);
+router.patch("/applicants/:id/status", careerController.updateApplicationStatus);
 
 module.exports = router;

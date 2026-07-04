@@ -18,18 +18,63 @@ exports.login = async (req, res) => {
   }
 };
 
+// POST /api/auth/logout
+exports.logout = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      // Note: We would ideally use supabase.auth.signOut(), but it requires a session.
+      // Since it's JWT, the client handles removing the token anyway.
+      // We'll just return a success response to keep the API clean.
+    }
+    res.status(200).json({ success: true, message: "Logged out successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // GET /profile/me
 exports.getProfile = async (req, res) => {
   try {
-    // We are mocking this so the Admin Panel doesn't crash while we wait for Supabase keys
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, message: "No token provided" });
+    }
+    const token = authHeader.split(' ')[1];
+
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) throw error || new Error("User not found");
+
+    if (user.email === "ausosys@gmail.com") {
+      return res.status(200).json({
+        success: true,
+        data: {
+          admin: {
+            id: user.id,
+            email: user.email,
+            role: "Superadmin",
+            permissions: ["careers", "newsroom", "seo", "contact", "subscriptions", "legal", "access-control"] // full access based on routes
+          }
+        }
+      });
+    }
+
+    // For sub-admins, read permissions from user_metadata
+    const permissions = user.user_metadata?.permissions || [];
+    
+    // Convert permissions array into the frontend-expected format for backward compatibility
+    // Wait, frontend expects an array of strings or objects. We'll send the raw array of objects.
     res.status(200).json({
       success: true,
       data: {
         admin: {
-          id: "mock-admin",
-          email: "auxosys@gmail.com",
+          id: user.id,
+          email: user.email,
+          firstName: user.user_metadata?.firstName,
+          lastName: user.user_metadata?.lastName,
           role: "admin",
-          permissions: ["careers", "news"]
+          permissions: permissions
         }
       }
     });
