@@ -1,5 +1,31 @@
 const supabase = require("../config/supabaseClient");
 
+exports.createSubscription = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required" });
+    }
+    
+    // Insert into subscriptions table
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .insert([{ email, status: "Active" }])
+      .select();
+      
+    if (error) {
+      if (error.code === '23505') {
+        return res.status(400).json({ success: false, message: "Email is already subscribed" });
+      }
+      throw error;
+    }
+    
+    res.status(201).json({ success: true, data: data[0], message: "Successfully subscribed!" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 exports.getAllSubscriptions = async (req, res) => {
   try {
     let query = supabase.from("subscriptions").select("*").order("created_at", { ascending: false });

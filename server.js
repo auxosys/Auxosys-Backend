@@ -57,6 +57,20 @@ app.use("/auth", authRoutes);
 app.use("/profile", authRoutes);
 
 const dashboardRoutes = require("./routes/dashboardRoutes");
+const contactController = require("./controllers/contactController");
+const subscriptionController = require("./controllers/subscriptionController");
+const legalController = require("./controllers/legalController");
+
+// Public API Routes
+app.post("/public/contact", contactController.createMessage);
+app.post("/public/subscribe", subscriptionController.createSubscription);
+app.get("/public/legal", legalController.getPublicLegalPages);
+app.get("/public/legal/:slug", legalController.getPublicPageBySlug);
+app.get("/public/contact-debug", async (req, res) => {
+  const supabase = require("./config/supabaseClient");
+  const { data, error } = await supabase.from("contact_messages").select("*").limit(1);
+  res.json({ data, error });
+});
 
 // Protected Admin Routes
 app.use("/dashboard", requirePermission, dashboardRoutes);

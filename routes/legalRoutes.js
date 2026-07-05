@@ -3,6 +3,7 @@ const router = express.Router();
 const legalController = require("../controllers/legalController");
 
 router.get("/admin/all", legalController.getAllLegalPages);
+router.get("/admin/:id", legalController.getPageById);
 router.post("/", legalController.createPage);
 router.put("/reorder", legalController.reorderPages);
 router.put("/:id", legalController.updatePage);

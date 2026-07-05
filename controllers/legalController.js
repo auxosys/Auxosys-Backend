@@ -4,15 +4,78 @@ exports.getAllLegalPages = async (req, res) => {
   try {
     const { data, error } = await supabase.from("legal_pages").select("*").order("order_index", { ascending: true });
     if (error) throw error;
+    
+    // Map id to _id and published to status for Admin Panel frontend compatibility
+    const mappedData = (data || []).map(item => ({
+      ...item,
+      _id: item.id,
+      status: item.published ? "Published" : "Draft"
+    }));
+    
+    res.status(200).json({ success: true, data: mappedData });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.getPublicLegalPages = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("legal_pages")
+      .select("title, slug")
+      .eq("published", true)
+      .order("order_index", { ascending: true });
+    if (error) throw error;
     res.status(200).json({ success: true, data: data || [] });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
+exports.getPublicPageBySlug = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("legal_pages")
+      .select("*")
+      .eq("slug", req.params.slug)
+      .eq("published", true)
+      .single();
+    if (error) throw error;
+    
+    let parsedContent = { seo: {}, sections: [] };
+    if (data.content) {
+      try {
+        parsedContent = JSON.parse(data.content);
+      } catch (e) {}
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        title: data.title,
+        slug: data.slug,
+        seo: parsedContent.seo || {},
+        sections: parsedContent.sections || []
+      }
+    });
+  } catch (err) {
+    res.status(404).json({ success: false, message: "Page not found" });
+  }
+};
+
 exports.createPage = async (req, res) => {
   try {
-    const { title, slug, content, published } = req.body;
+    const { title, status, seo, sections } = req.body;
+    const slug = title ? title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') : 'untitled';
+    const published = status === 'Published';
+    const content = JSON.stringify({ seo, sections });
+
+    // Check if slug already exists
+    const { data: existing } = await supabase.from("legal_pages").select("id").eq("slug", slug).single();
+    if (existing) {
+      return res.status(400).json({ success: false, message: `A page with the title "${title}" already exists. Please choose a different title.` });
+    }
+
     const { data, error } = await supabase
       .from("legal_pages")
       .insert([{ title, slug, content, published }])
@@ -26,7 +89,11 @@ exports.createPage = async (req, res) => {
 
 exports.updatePage = async (req, res) => {
   try {
-    const { title, slug, content, published } = req.body;
+    const { title, status, seo, sections } = req.body;
+    const slug = title ? title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') : 'untitled';
+    const published = status === 'Published';
+    const content = JSON.stringify({ seo, sections });
+
     const { data, error } = await supabase
       .from("legal_pages")
       .update({ title, slug, content, published, last_updated: new Date() })
@@ -49,6 +116,31 @@ exports.deletePage = async (req, res) => {
   }
 };
 
+exports.getPageById = async (req, res) => {
+  try {
+    const { data, error } = await supabase.from("legal_pages").select("*").eq("id", req.params.id).single();
+    if (error) throw error;
+    
+    let parsedContent = { seo: {}, sections: [] };
+    if (data.content) {
+      try {
+        parsedContent = JSON.parse(data.content);
+      } catch (e) {}
+    }
+    
+    const mappedData = {
+      ...data,
+      status: data.published ? "Published" : "Draft",
+      seo: parsedContent.seo || {},
+      sections: parsedContent.sections || []
+    };
+    
+    res.status(200).json({ success: true, data: mappedData });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 exports.reorderPages = async (req, res) => {
   try {
     const { pages } = req.body; // array of { _id, orderIndex }
@@ -58,7 +150,7 @@ exports.reorderPages = async (req, res) => {
       pages.map(p => 
         supabase
           .from("legal_pages")
-          .update({ order_index: p.orderIndex })
+          .update({ order_index: p.orderIndex ?? p.order })
           .eq("id", p._id || p.id)
       )
     );
