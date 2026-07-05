@@ -97,8 +97,12 @@ exports.createNews = async (req, res) => {
       } catch {} // silently ignore malformed seo
     }
 
+    const host = req.get('host');
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const baseUrl = `${protocol}://${host}`;
+
     if (req.file) {
-      newPost.featured_image_url = `http://localhost:5002/uploads/${req.file.filename}`;
+      newPost.featured_image_url = `${baseUrl}/uploads/${req.file.filename}`;
     } else if (featuredImageUrl) {
       newPost.featured_image_url = featuredImageUrl;
     }
@@ -134,8 +138,12 @@ exports.updateNews = async (req, res) => {
       try { updates.seo = typeof seo === "string" ? JSON.parse(seo) : seo; } catch {}
     }
 
+    const host = req.get('host');
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const baseUrl = `${protocol}://${host}`;
+
     if (req.file) {
-      updates.featured_image_url = `http://localhost:5002/uploads/${req.file.filename}`;
+      updates.featured_image_url = `${baseUrl}/uploads/${req.file.filename}`;
     } else if (featuredImageUrl) {
       updates.featured_image_url = featuredImageUrl;
       delete updates.featuredImageUrl;

@@ -43,10 +43,15 @@ const upload = multer({ dest: "uploads/" });
 
 app.post("/upload", requirePermission, upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
+  
+  const host = req.get('host');
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const baseUrl = `${protocol}://${host}`;
+
   res.json({
     success: true,
     data: {
-      url: `http://localhost:5002/uploads/${req.file.filename}`,
+      url: `${baseUrl}/uploads/${req.file.filename}`,
       key: req.file.filename
     }
   });
