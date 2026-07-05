@@ -3,7 +3,7 @@ const supabase = require("../config/supabaseClient");
 exports.getAllLegalPages = async (req, res) => {
   try {
     const { data, error } = await supabase.from("legal_pages").select("*").order("order_index", { ascending: true });
-    if (error) throw error;
+    if (error) { console.error("SUPABASE ERROR:", error); throw error; } else { console.log("DATA:", data); }
     
     // Map id to _id and published to status for Admin Panel frontend compatibility
     const mappedData = (data || []).map(item => ({
@@ -25,7 +25,7 @@ exports.getPublicLegalPages = async (req, res) => {
       .select("title, slug")
       .eq("published", true)
       .order("order_index", { ascending: true });
-    if (error) throw error;
+    if (error) { console.error("SUPABASE ERROR:", error); throw error; } else { console.log("DATA:", data); }
     res.status(200).json({ success: true, data: data || [] });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -40,7 +40,7 @@ exports.getPublicPageBySlug = async (req, res) => {
       .eq("slug", req.params.slug)
       .eq("published", true)
       .single();
-    if (error) throw error;
+    if (error) { console.error("SUPABASE ERROR:", error); throw error; } else { console.log("DATA:", data); }
     
     let parsedContent = { seo: {}, sections: [] };
     if (data.content) {
@@ -80,7 +80,7 @@ exports.createPage = async (req, res) => {
       .from("legal_pages")
       .insert([{ title, slug, content, published }])
       .select();
-    if (error) throw error;
+    if (error) { console.error("SUPABASE ERROR:", error); throw error; } else { console.log("DATA:", data); }
     res.status(201).json({ success: true, data: data[0] });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -99,7 +99,7 @@ exports.updatePage = async (req, res) => {
       .update({ title, slug, content, published, last_updated: new Date() })
       .eq("id", req.params.id)
       .select();
-    if (error) throw error;
+    if (error) { console.error("SUPABASE ERROR:", error); throw error; } else { console.log("DATA:", data); }
     res.status(200).json({ success: true, data: data[0] });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -109,7 +109,7 @@ exports.updatePage = async (req, res) => {
 exports.deletePage = async (req, res) => {
   try {
     const { data, error } = await supabase.from("legal_pages").delete().eq("id", req.params.id);
-    if (error) throw error;
+    if (error) { console.error("SUPABASE ERROR:", error); throw error; } else { console.log("DATA:", data); }
     res.status(200).json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -119,7 +119,7 @@ exports.deletePage = async (req, res) => {
 exports.getPageById = async (req, res) => {
   try {
     const { data, error } = await supabase.from("legal_pages").select("*").eq("id", req.params.id).single();
-    if (error) throw error;
+    if (error) { console.error("SUPABASE ERROR:", error); throw error; } else { console.log("DATA:", data); }
     
     let parsedContent = { seo: {}, sections: [] };
     if (data.content) {

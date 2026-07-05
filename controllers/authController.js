@@ -4,7 +4,13 @@ const supabase = require("../config/supabaseClient");
 exports.login = async (req, res) => {
   const { email, password } = req.body;
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    // Create a temporary client to avoid mutating the global backend singleton
+    const { createClient } = require("@supabase/supabase-js");
+    const tempSupabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+    
+    const { data, error } = await tempSupabase.auth.signInWithPassword({
       email,
       password,
     });
