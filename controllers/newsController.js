@@ -11,8 +11,10 @@ exports.getAllNews = async (req, res) => {
       return res.status(200).json(cachedData);
     }
 
-    const isAdmin = req.originalUrl && req.originalUrl.includes("admin");
-    let query = supabase.from("news").select(isAdmin ? "*" : "id, slug, title, category, readTime, excerpt, featured_image_url, tags, authorName, authorRole, authorAvatar, published_at, created_at").order("published_at", { ascending: false });
+    let query = supabase
+      .from("news")
+      .select("*")
+      .order("published_at", { ascending: false });
     
     if (req.query.category && req.query.category !== "All") {
       query = query.eq("category", req.query.category);
@@ -32,10 +34,11 @@ exports.getAllNews = async (req, res) => {
 // GET /api/news/:slug
 exports.getNewsBySlug = async (req, res) => {
   try {
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(req.params.slug);
     const { data: post, error } = await supabase
       .from("news")
       .select("*")
-      .eq("slug", req.params.slug)
+      .eq(isUUID ? "id" : "slug", req.params.slug)
       .single();
       
     if (error) throw error;
@@ -60,23 +63,53 @@ exports.getNewsBySlug = async (req, res) => {
 // POST /api/news
 exports.createNews = async (req, res) => {
   try {
+    // Destructure and map form field names → DB column names
+    const {
+      author,       // form sends 'author', DB uses 'authorName'
+      summary,      // form sends 'summary', DB uses 'excerpt'
+      publishedAt,
+      featuredImageUrl,
+      relatedPage,
+      seo,
+      ...rest
+    } = req.body;
+
+    const slug = rest.title ? rest.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Date.now().toString().slice(-4) : 'post-' + Date.now();
+    
     const newPost = {
-      ...req.body,
-      published_at: req.body.publishedAt || new Date().toISOString()
+      ...rest,
+      slug: slug,
+      authorName: author || "AUXOSYS Editorial",
+      excerpt: summary || "",
+      published_at: publishedAt || new Date().toISOString(),
     };
+
+    // Add optional fields only if present
+    if (relatedPage) newPost.relatedPage = relatedPage;
+    if (seo) {
+      try {
+        const parsed = typeof seo === "string" ? JSON.parse(seo) : seo;
+        // Only store SEO if at least one field has a real value
+        const hasContent = parsed && Object.values(parsed).some(v =>
+          v !== null && v !== undefined && v !== '' && v !== false
+        );
+        if (hasContent) newPost.seo = parsed;
+      } catch {} // silently ignore malformed seo
+    }
+
     if (req.file) {
       newPost.featured_image_url = `http://localhost:5002/uploads/${req.file.filename}`;
-    } else if (newPost.featuredImageUrl) {
-      newPost.featured_image_url = newPost.featuredImageUrl;
-      delete newPost.featuredImageUrl;
+    } else if (featuredImageUrl) {
+      newPost.featured_image_url = featuredImageUrl;
     }
 
     const { data, error } = await supabase.from("news").insert([newPost]).select();
     if (error) throw error;
     
-    cache.flushAll(); // Invalidate cache
+    cache.flushAll();
     res.status(201).json({ success: true, data: data[0] });
   } catch (err) {
+    console.error("Create News Error:", err);
     res.status(500).json({ success: false, message: "Database Error: " + err.message });
   }
 };
@@ -84,17 +117,33 @@ exports.createNews = async (req, res) => {
 // PUT /api/news/:id
 exports.updateNews = async (req, res) => {
   try {
-    const updates = { ...req.body };
+    const {
+      author,
+      summary,
+      publishedAt,
+      featuredImageUrl,
+      seo,
+      ...rest
+    } = req.body;
+
+    const updates = { ...rest };
+    if (author !== undefined) updates.authorName = author;
+    if (summary !== undefined) updates.excerpt = summary;
+    if (publishedAt) updates.published_at = publishedAt;
+    if (seo) {
+      try { updates.seo = typeof seo === "string" ? JSON.parse(seo) : seo; } catch {}
+    }
+
     if (req.file) {
       updates.featured_image_url = `http://localhost:5002/uploads/${req.file.filename}`;
-    } else if (updates.featuredImageUrl) {
-      updates.featured_image_url = updates.featuredImageUrl;
+    } else if (featuredImageUrl) {
+      updates.featured_image_url = featuredImageUrl;
       delete updates.featuredImageUrl;
     }
 
     const { data, error } = await supabase.from("news").update(updates).eq("id", req.params.id).select();
     if (error) throw error;
-    cache.flushAll(); // Invalidate cache
+    cache.flushAll();
     res.status(200).json({ success: true, data: data[0] });
   } catch (err) {
     res.status(500).json({ success: false, message: "Database Error: " + err.message });

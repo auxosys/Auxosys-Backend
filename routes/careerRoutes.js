@@ -10,7 +10,10 @@ router.put("/:id", careerController.updateCareer);
 router.patch("/:id/toggle", careerController.toggleJobStatus);
 router.delete("/:id", careerController.deleteCareer);
 
-router.post("/:id/apply", careerController.applyForJob);
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage() });
+
+router.post("/:id/apply", upload.fields([{ name: "resume", maxCount: 1 }, { name: "coverLetter", maxCount: 1 }]), careerController.applyForJob);
 router.get("/applications/all", careerController.getAllApplications);
 router.get("/applicants/:jobId", careerController.getApplicantsByJobId);
 router.patch("/applicants/:id/status", careerController.updateApplicationStatus);

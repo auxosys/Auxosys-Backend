@@ -12,7 +12,9 @@ exports.getAllCareers = async (req, res) => {
     }
 
     const isAdmin = req.originalUrl && req.originalUrl.includes("admin");
-    let query = supabase.from("careers").select(isAdmin ? "*" : "id, slug, title, role_type, employment_type, work_mode, department, area_of_interest, experience_level, openings, status, featured, urgent, country, state, city, office_location, min_salary, max_salary, created_at").order("created_at", { ascending: false });
+    let query = supabase.from("careers")
+      .select(isAdmin ? "*, applications(count)" : "id, slug, title, role_type, employment_type, work_mode, department, area_of_interest, experience_level, openings, status, featured, urgent, country, state, city, office_location, min_salary, max_salary, currency, hide_salary, salary_type, created_at, short_summary, requirements, responsibilities, tech_skills")
+      .order("created_at", { ascending: false });
 
     // Apply filters if passed
     if (req.path === "/" && !req.path.includes("/admin")) {
@@ -26,7 +28,18 @@ exports.getAllCareers = async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
     
-    const responseData = { success: true, data: data || [], totalPages: 1 };
+    // Map application count for admin
+    const mappedData = data ? data.map(job => {
+      let applicantCount = 0;
+      if (job.applications && job.applications.length > 0) {
+        applicantCount = job.applications[0].count || 0;
+      }
+      const newJob = { ...job, applicantCount };
+      delete newJob.applications;
+      return newJob;
+    }) : [];
+
+    const responseData = { success: true, data: mappedData, totalPages: 1 };
     cache.set(cacheKey, responseData);
     res.status(200).json(responseData);
   } catch (err) {
@@ -38,19 +51,53 @@ exports.getAllCareers = async (req, res) => {
 exports.getCareerById = async (req, res) => {
   try {
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(req.params.id);
-    const { data, error } = await supabase.from("careers").select("*").eq(isUUID ? "id" : "slug", req.params.id).single();
+    const isAdmin = req.originalUrl && req.originalUrl.includes("admin");
+
+    const { data, error } = await supabase
+      .from("careers")
+      .select(isAdmin ? "*, applications(count)" : "*")
+      .eq(isUUID ? "id" : "slug", req.params.id)
+      .single();
+
     if (error) throw error;
     if (!data) return res.status(404).json({ success: false, message: "Job not found" });
-    res.status(200).json({ success: true, data });
+    
+    let applicantCount = 0;
+    if (data.applications && data.applications.length > 0) {
+      applicantCount = data.applications[0].count || 0;
+    }
+    const mappedData = { ...data, applicantCount };
+    delete mappedData.applications;
+
+    res.status(200).json({ success: true, data: mappedData });
   } catch (err) {
     res.status(500).json({ success: false, message: "Database Error: " + err.message });
   }
 };
 
+// Helper to generate a URL-friendly slug
+const generateSlug = (text) => {
+  if (!text) return "";
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+};
+
+// Helper to convert empty strings to null for Supabase
+const sanitizePayload = (body) => {
+  const sanitized = {};
+  for (const [key, value] of Object.entries(body)) {
+    sanitized[key] = value === "" ? null : value;
+  }
+  return sanitized;
+};
+
 // POST /job
 exports.createCareer = async (req, res) => {
   try {
-    const { data, error } = await supabase.from("careers").insert([req.body]).select();
+    const payload = sanitizePayload(req.body);
+    if (!payload.slug && payload.title) {
+      payload.slug = generateSlug(payload.title);
+    }
+    const { data, error } = await supabase.from("careers").insert([payload]).select();
     if (error) throw error;
     cache.flushAll(); // Invalidate cache
     res.status(201).json({ success: true, data: data[0] });
@@ -62,7 +109,11 @@ exports.createCareer = async (req, res) => {
 // PUT /job/:id
 exports.updateCareer = async (req, res) => {
   try {
-    const { data, error } = await supabase.from("careers").update(req.body).eq("id", req.params.id).select();
+    const payload = sanitizePayload(req.body);
+    if (!payload.slug && payload.title) {
+      payload.slug = generateSlug(payload.title);
+    }
+    const { data, error } = await supabase.from("careers").update(payload).eq("id", req.params.id).select();
     if (error) throw error;
     cache.flushAll(); // Invalidate cache
     res.status(200).json({ success: true, data: data[0] });
@@ -115,11 +166,56 @@ exports.applyForJob = async (req, res) => {
     
     resolvedJobId = dbJob.id; // Ensure we use the UUID for the foreign key
 
-    const payload = { ...req.body, job_id: resolvedJobId, status: "Pending" };
+    const allowedFields = [
+      "firstName", "lastName", "email", "phone", "country", "linkedin", "github", "portfolio",
+      "currentCompany", "currentDesignation", "currentCtc", "expectedCtc", "noticePeriod", "experience",
+      "qualification", "college", "degree", "stream", "currentSemester", "graduationYear", "cgpa",
+      "internshipExperience", "skills", "relevantSkills", "whyAuxosys", "additionalNotes",
+      "otherQualification", "streamOfQualification", "consent", "privacy",
+      "resume_url", "cover_letter_url"
+    ];
+    
+    const filteredBody = {};
+    for (const key of Object.keys(req.body)) {
+      if (allowedFields.includes(key)) {
+        filteredBody[key] = req.body[key];
+      }
+    }
+
+    // Handle files if uploaded
+    if (req.files) {
+      if (req.files.resume && req.files.resume[0]) {
+        const file = req.files.resume[0];
+        const filename = `${Date.now()}-${file.originalname}`;
+        const { data, error } = await supabase.storage.from("applications").upload(`resumes/${filename}`, file.buffer, {
+          contentType: file.mimetype,
+        });
+        if (error) console.error("Error uploading resume:", error);
+        else {
+          const { data: publicUrlData } = supabase.storage.from("applications").getPublicUrl(`resumes/${filename}`);
+          filteredBody.resume_url = publicUrlData.publicUrl;
+        }
+      }
+      if (req.files.coverLetter && req.files.coverLetter[0]) {
+        const file = req.files.coverLetter[0];
+        const filename = `${Date.now()}-${file.originalname}`;
+        const { data, error } = await supabase.storage.from("applications").upload(`cover_letters/${filename}`, file.buffer, {
+          contentType: file.mimetype,
+        });
+        if (error) console.error("Error uploading cover letter:", error);
+        else {
+          const { data: publicUrlData } = supabase.storage.from("applications").getPublicUrl(`cover_letters/${filename}`);
+          filteredBody.cover_letter_url = publicUrlData.publicUrl;
+        }
+      }
+    }
+
+    const payload = { ...filteredBody, job_id: resolvedJobId, status: "Pending" };
     const { data, error } = await supabase.from("applications").insert([payload]).select();
     if (error) throw error;
     res.status(201).json({ success: true, data: data[0] });
   } catch (err) {
+    console.error("Job Application Error:", err);
     res.status(500).json({ success: false, message: "Database Error: " + err.message });
   }
 };
@@ -127,7 +223,10 @@ exports.applyForJob = async (req, res) => {
 // GET /job/applications/all (Admin CRM)
 exports.getAllApplications = async (req, res) => {
   try {
-    const { data, error } = await supabase.from("applications").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase
+      .from("applications")
+      .select("*, job:careers(title)")
+      .order("created_at", { ascending: false });
     if (error) throw error;
     res.status(200).json({ success: true, data: data || [] });
   } catch (err) {
@@ -138,7 +237,11 @@ exports.getAllApplications = async (req, res) => {
 // GET /job/applicants/:jobId
 exports.getApplicantsByJobId = async (req, res) => {
   try {
-    const { data, error } = await supabase.from("applications").select("*").eq("job_id", req.params.jobId).order("created_at", { ascending: false });
+    const { data, error } = await supabase
+      .from("applications")
+      .select("*, job:careers(title)")
+      .eq("job_id", req.params.jobId)
+      .order("created_at", { ascending: false });
     if (error) throw error;
     res.status(200).json({ success: true, data: data || [] });
   } catch (err) {

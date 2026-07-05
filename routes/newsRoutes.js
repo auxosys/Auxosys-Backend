@@ -6,6 +6,7 @@ const upload = multer({ dest: "uploads/" });
 
 router.get("/", newsController.getAllNews);
 router.get("/admin/all", newsController.getAllNews);
+router.get("/admin/:slug", newsController.getNewsBySlug);
 router.get("/:slug", newsController.getNewsBySlug);
 router.post("/", upload.single("featuredImage"), newsController.createNews);
 router.put("/:id", upload.single("featuredImage"), newsController.updateNews);

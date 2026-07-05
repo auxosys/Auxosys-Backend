@@ -48,7 +48,10 @@ app.post("/upload", requirePermission, upload.single("file"), (req, res) => {
 app.use("/auth", authRoutes);
 app.use("/profile", authRoutes);
 
+const dashboardRoutes = require("./routes/dashboardRoutes");
+
 // Protected Admin Routes
+app.use("/dashboard", requirePermission, dashboardRoutes);
 app.use("/job", requirePermission, careerRoutes);
 app.use("/news", requirePermission, newsRoutes);
 app.use("/subscriptions", requirePermission, subscriptionRoutes);
