@@ -41,6 +41,9 @@ exports.getNewsBySlug = async (req, res) => {
       .eq(isUUID ? "id" : "slug", req.params.slug)
       .single();
       
+    if (error && error.code === 'PGRST116') {
+      return res.status(404).json({ success: false, message: "News not found" });
+    }
     if (error) throw error;
     if (!post) return res.status(404).json({ success: false, message: "News not found" });
 
