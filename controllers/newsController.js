@@ -5,7 +5,7 @@ const cache = new NodeCache({ stdTTL: 60 });
 // GET /api/news
 exports.getAllNews = async (req, res) => {
   try {
-    const cacheKey = `allNews_${req.query.category || 'all'}`;
+    const cacheKey = `allNews_${req.query.category || 'all'}_${req.query.relatedPage || 'none'}`;
     const cachedData = cache.get(cacheKey);
     if (cachedData) {
       return res.status(200).json(cachedData);
@@ -18,6 +18,9 @@ exports.getAllNews = async (req, res) => {
     
     if (req.query.category && req.query.category !== "All") {
       query = query.eq("category", req.query.category);
+    }
+    if (req.query.relatedPage) {
+      query = query.eq("relatedPage", req.query.relatedPage);
     }
 
     const { data, error } = await query;
