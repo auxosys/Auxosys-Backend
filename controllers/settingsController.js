@@ -48,7 +48,7 @@ exports.changePassword = async (req, res) => {
     if (authHeader) {
       const token = authHeader.split(' ')[1];
       const { data: { user } } = await supabase.auth.getUser(token);
-      if (user && user.email === "ausosys@gmail.com") {
+      if (user && user.email === "admin@auxosys.com") {
         return res.status(403).json({ success: false, message: "Superadmin password cannot be modified." });
       }
     }

@@ -37,7 +37,7 @@ exports.requirePermission = async (req, res, next) => {
     if (error || !user) throw error || new Error("User not found");
 
     // Superadmin bypass
-    if (user.email === "auxosys@gmail.com") {
+    if (user.email === "auxosys@gmail.com" || user.email === "admin@auxosys.com") {
       req.user = user;
       return next();
     }

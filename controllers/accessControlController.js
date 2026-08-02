@@ -76,7 +76,7 @@ exports.deleteRole = async (req, res) => {
     // Protect superadmin from deletion just in case
     const { data: { user }, error: fetchError } = await supabase.auth.admin.getUserById(id);
     if (fetchError) throw fetchError;
-    if (user.email === "ausosys@gmail.com") {
+    if (user.email === "admin@auxosys.com") {
       return res.status(403).json({ success: false, message: "Superadmin cannot be deleted." });
     }
 

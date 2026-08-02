@@ -52,7 +52,7 @@ exports.getProfile = async (req, res) => {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) throw error || new Error("User not found");
 
-    if (user.email === "auxosys@gmail.com") {
+    if (user.email === "auxosys@gmail.com" || user.email === "admin@auxosys.com") {
       return res.status(200).json({
         success: true,
         data: {
