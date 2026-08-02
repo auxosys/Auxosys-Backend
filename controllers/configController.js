@@ -18,6 +18,9 @@ exports.getRelatedPages = (req, res) => {
     { value: "workforce", label: "Product: People & Workforce Hub" },
     { value: "inventory", label: "Product: Inventory & Supply Management" },
     { value: "collaboration", label: "Product: Project & Team Collaboration Suite" },
+    { value: "enterprise-blockchain-platform", label: "Product: Enterprise Blockchain Platform" },
+    { value: "dao-management-platform", label: "Product: DAO Management Platform" },
+    { value: "digital-asset-tokenization-platform", label: "Product: Digital Asset Tokenization Platform" },
 
     // Services
     { value: "digital-strategy-consulting", label: "Service: Digital Strategy Consulting" },
@@ -38,6 +41,12 @@ exports.getRelatedPages = (req, res) => {
     { value: "whatsapp-business-solutions", label: "Service: WhatsApp Business Solutions" },
     { value: "cybersecurity", label: "Service: Cybersecurity" },
     { value: "devops-and-integrations", label: "Service: DevOps & Integrations" },
+    { value: "smart-contract-development", label: "Service: Smart Contract Development" },
+    { value: "dapp-development", label: "Service: dApp Development" },
+    { value: "enterprise-blockchain-solutions", label: "Service: Enterprise Blockchain Solutions" },
+    { value: "crypto-wallet-development", label: "Service: Crypto Wallet Development" },
+    { value: "tokenization-solutions", label: "Service: Tokenization Solutions" },
+    { value: "web3-integration", label: "Service: Web3 Integration" },
 
     // Industries
     { value: "healthcare-and-life-sciences", label: "Industry: Healthcare & Life Sciences" },
@@ -49,7 +58,8 @@ exports.getRelatedPages = (req, res) => {
     { value: "hospitality-and-travel", label: "Industry: Hospitality & Travel" },
     { value: "real-estate-and-construction", label: "Industry: Real Estate & Construction" },
     { value: "energy-and-utilities", label: "Industry: Energy & Utilities" },
-    { value: "agriculture-and-agritech", label: "Industry: Agriculture & AgriTech" }
+    { value: "agriculture-and-agritech", label: "Industry: Agriculture & AgriTech" },
+    { value: "blockchain-and-web3", label: "Industry: Blockchain & Web3" }
   ];
 
   res.status(200).json({ success: true, data: RELATED_PAGES });
