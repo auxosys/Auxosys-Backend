@@ -48,7 +48,7 @@ exports.sendJobApplicationNotificationToAdmin = async (applicationData) => {
     const { firstName, lastName, email, phone, appliedRole } = applicationData;
     
     const mailOptions = {
-      from: `"Auxosys Careers" <${SENDER}>`,
+      from: `"Talent Acquisition Auxosys" <${SENDER}>`,
       to: ADMIN_EMAIL,
       subject: `New Job Application: ${firstName} ${lastName} for ${appliedRole || 'Open Position'}`,
       html: `
@@ -77,9 +77,9 @@ exports.sendApplicationReceivedEmailToCandidate = async (candidateData) => {
   try {
     const htmlContent = templates.getApplicationReceivedTemplate(candidateData);
     const mailOptions = {
-      from: `"Auxosys Careers" <${SENDER}>`,
+      from: `"Talent Acquisition Auxosys" <${SENDER}>`,
       to: candidateData.CandidateEmail,
-      subject: `Your Application Has Been Received | Auxosys`,
+      subject: `Application Received – ${candidateData.JobTitle} | Auxosys`,
       html: htmlContent,
     };
     const info = await transporter.sendMail(mailOptions);
@@ -95,7 +95,7 @@ exports.sendApplicationRejectedEmailToCandidate = async (candidateData) => {
   try {
     const htmlContent = templates.getApplicationRejectedTemplate(candidateData);
     const mailOptions = {
-      from: `"Auxosys Careers" <${SENDER}>`,
+      from: `"Talent Acquisition Auxosys" <${SENDER}>`,
       to: candidateData.CandidateEmail,
       subject: `Update on Your Application | Auxosys`,
       html: htmlContent,

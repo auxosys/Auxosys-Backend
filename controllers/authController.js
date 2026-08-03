@@ -1,4 +1,5 @@
 const supabase = require("../config/supabaseClient");
+const { signCustomToken, verifyToken } = require("../utils/jwtHelper");
 
 // POST /api/auth/login
 exports.login = async (req, res) => {
@@ -17,8 +18,9 @@ exports.login = async (req, res) => {
     
     if (error) throw error;
     
-    // We send back the session token for the Admin panel to store
-    res.status(200).json({ success: true, token: data.session.access_token, user: data.user });
+    // We send back a custom extended JWT (30 days) for the Admin panel to prevent quick logouts
+    const customToken = signCustomToken(data.user);
+    res.status(200).json({ success: true, token: customToken, user: data.user });
   } catch (err) {
     res.status(401).json({ success: false, message: err.message });
   }
@@ -49,8 +51,7 @@ exports.getProfile = async (req, res) => {
     }
     const token = authHeader.split(' ')[1];
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) throw error || new Error("User not found");
+    const user = await verifyToken(token);
 
     if (user.email === "auxosys@gmail.com" || user.email === "admin@auxosys.com") {
       return res.status(200).json({

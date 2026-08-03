@@ -1,4 +1,5 @@
 const supabase = require("../config/supabaseClient");
+const { verifyToken } = require("../utils/jwtHelper");
 
 const MODULE_MAPPING = {
   "/job": "careers",
@@ -33,8 +34,7 @@ exports.requirePermission = async (req, res, next) => {
     }
     const token = authHeader.split(" ")[1];
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) throw error || new Error("User not found");
+    const user = await verifyToken(token);
 
     // Superadmin bypass
     if (user.email === "auxosys@gmail.com" || user.email === "admin@auxosys.com") {

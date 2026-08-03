@@ -42,7 +42,7 @@ exports.getDashboard = async (req, res) => {
     const { count: totalContacts, data: allContacts } = await supabase.from("contact_messages").select("id, name, subject, status, created_at", { count: "exact" });
     
     // 2. Get active jobs
-    const { count: activeJobs } = await supabase.from("careers").select("id, created_at", { count: "exact" }).eq("status", "Active");
+    const { count: activeJobs, data: allJobs } = await supabase.from("careers").select("id, created_at", { count: "exact" }).eq("status", "Active");
 
     // 3. Get total job applications
     const { count: jobApplications, data: allApps } = await supabase.from("applications").select("id, firstName, lastName, status, created_at, job:careers(title)", { count: "exact" });
@@ -91,12 +91,13 @@ exports.getDashboard = async (req, res) => {
 
     const contactCountsByDay = [0, 0, 0, 0, 0, 0, 0];
     const appCountsByDay = [0, 0, 0, 0, 0, 0, 0];
+    const jobCountsByDay = [0, 0, 0, 0, 0, 0, 0];
+    const newsCountsByDay = [0, 0, 0, 0, 0, 0, 0];
 
     sortedContacts.forEach(c => {
       const d = new Date(c.created_at);
       if (d >= sevenDaysAgo) {
-        const jsDay = d.getDay();
-        const uiIndex = uiDayIndices.indexOf(jsDay);
+        const uiIndex = uiDayIndices.indexOf(d.getDay());
         if (uiIndex !== -1) contactCountsByDay[uiIndex]++;
       }
     });
@@ -104,9 +105,24 @@ exports.getDashboard = async (req, res) => {
     sortedApps.forEach(a => {
       const d = new Date(a.created_at);
       if (d >= sevenDaysAgo) {
-        const jsDay = d.getDay();
-        const uiIndex = uiDayIndices.indexOf(jsDay);
+        const uiIndex = uiDayIndices.indexOf(d.getDay());
         if (uiIndex !== -1) appCountsByDay[uiIndex]++;
+      }
+    });
+
+    (allJobs || []).forEach(j => {
+      const d = new Date(j.created_at);
+      if (d >= sevenDaysAgo) {
+        const uiIndex = uiDayIndices.indexOf(d.getDay());
+        if (uiIndex !== -1) jobCountsByDay[uiIndex]++;
+      }
+    });
+
+    (allNews || []).forEach(n => {
+      const d = new Date(n.created_at);
+      if (d >= sevenDaysAgo) {
+        const uiIndex = uiDayIndices.indexOf(d.getDay());
+        if (uiIndex !== -1) newsCountsByDay[uiIndex]++;
       }
     });
     
@@ -125,7 +141,9 @@ exports.getDashboard = async (req, res) => {
         labels: uiLabels,
         series: [
           { name: "Contacts", data: contactCountsByDay },
-          { name: "Applications", data: appCountsByDay }
+          { name: "Applications", data: appCountsByDay },
+          { name: "Jobs", data: jobCountsByDay },
+          { name: "News", data: newsCountsByDay }
         ]
       },
       contactStatus: {

@@ -1,4 +1,5 @@
 const supabase = require("../config/supabaseClient");
+const { verifyToken } = require("../utils/jwtHelper");
 
 exports.getSettings = async (req, res) => {
   try {
@@ -43,18 +44,22 @@ exports.updateSettings = async (req, res) => {
 
 exports.changePassword = async (req, res) => {
   try {
-    // Prevent password change for superadmin as requested by user
     const authHeader = req.headers.authorization;
-    if (authHeader) {
-      const token = authHeader.split(' ')[1];
-      const { data: { user } } = await supabase.auth.getUser(token);
-      if (user && user.email === "admin@auxosys.com") {
-        return res.status(403).json({ success: false, message: "Superadmin password cannot be modified." });
-      }
+    if (!authHeader) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const user = await verifyToken(token);
+    
+    if (user && user.email === "admin@auxosys.com") {
+      return res.status(403).json({ success: false, message: "Superadmin password cannot be modified." });
     }
     
     const { newPassword } = req.body;
-    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+    // We must use the user id to update since the global supabase client has no session
+    const { data, error } = await supabase.auth.admin.updateUserById(user.id, { password: newPassword });
+    
     if (error) throw error;
     res.status(200).json({ success: true, message: "Password updated successfully" });
   } catch (err) {
