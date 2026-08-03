@@ -1,5 +1,7 @@
 const supabase = require("../config/supabaseClient");
 
+const emailService = require("../utils/emailService");
+
 exports.createMessage = async (req, res) => {
   try {
     const { name, email, phone, subject, message } = req.body;
@@ -18,6 +20,9 @@ exports.createMessage = async (req, res) => {
       console.error("Supabase Insert Error:", error);
       throw error;
     }
+    
+    // Send email notification to Admin asynchronously
+    emailService.sendContactNotificationToAdmin({ name, email, phone, subject, message });
     
     res.status(201).json({ success: true, data: data[0], message: "Message sent successfully" });
   } catch (err) {

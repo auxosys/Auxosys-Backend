@@ -38,22 +38,33 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
-const upload = multer({ dest: "uploads/" });
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "auxosys",
+    allowed_formats: ["jpg", "png", "jpeg", "webp", "svg", "gif"],
+  },
+});
+
+const upload = multer({ storage: storage });
 
 app.post("/upload", requirePermission, upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
-  
-  const host = req.get('host');
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-  const baseUrl = `${protocol}://${host}`;
 
   res.json({
     success: true,
     data: {
-      url: `${baseUrl}/uploads/${req.file.filename}`,
-      key: req.file.filename
+      url: req.file.path, // Cloudinary URL
+      key: req.file.filename // Cloudinary public_id
     }
   });
 });

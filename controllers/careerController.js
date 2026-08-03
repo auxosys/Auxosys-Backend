@@ -13,7 +13,7 @@ exports.getAllCareers = async (req, res) => {
 
     const isAdmin = req.originalUrl && req.originalUrl.includes("admin");
     let query = supabase.from("careers")
-      .select(isAdmin ? "*, applications(count)" : "id, slug, title, role_type, employment_type, work_mode, department, area_of_interest, experience_level, openings, status, featured, urgent, country, state, city, office_location, min_salary, max_salary, currency, hide_salary, salary_type, created_at, short_summary, requirements, responsibilities, tech_skills")
+      .select(isAdmin ? "*, applications(count)" : "id, public_id, slug, title, role_type, employment_type, work_mode, department, area_of_interest, experience_level, openings, status, featured, urgent, country, state, city, office_location, min_salary, max_salary, currency, hide_salary, salary_type, created_at, short_summary, requirements, responsibilities, tech_skills")
       .order("created_at", { ascending: false });
 
     // Apply filters if passed
@@ -97,6 +97,10 @@ exports.createCareer = async (req, res) => {
     if (!payload.slug && payload.title) {
       payload.slug = generateSlug(payload.title);
     }
+    
+    const { generateUniqueId } = require("../utils/idGenerator");
+    payload.public_id = await generateUniqueId('AUX', 'careers');
+    
     const { data, error } = await supabase.from("careers").insert([payload]).select();
     if (error) throw error;
     cache.flushAll(); // Invalidate cache
@@ -167,7 +171,7 @@ exports.applyForJob = async (req, res) => {
     resolvedJobId = dbJob.id; // Ensure we use the UUID for the foreign key
 
     const allowedFields = [
-      "firstName", "lastName", "email", "phone", "country", "linkedin", "github", "portfolio",
+      "firstName", "lastName", "email", "phone", "country", "gender", "dob", "linkedin", "github", "portfolio",
       "currentCompany", "currentDesignation", "currentCtc", "expectedCtc", "noticePeriod", "experience",
       "qualification", "college", "degree", "stream", "currentSemester", "graduationYear", "cgpa",
       "internshipExperience", "skills", "relevantSkills", "whyAuxosys", "additionalNotes",
@@ -210,9 +214,34 @@ exports.applyForJob = async (req, res) => {
       }
     }
 
+    const { generateUniqueId } = require("../utils/idGenerator");
     const payload = { ...filteredBody, job_id: resolvedJobId, status: "Pending" };
+    payload.public_id = await generateUniqueId('APP', 'applications');
+    
     const { data, error } = await supabase.from("applications").insert([payload]).select();
     if (error) throw error;
+    
+    // Send email notification to Admin asynchronously
+    const emailService = require("../utils/emailService");
+    emailService.sendJobApplicationNotificationToAdmin({
+      firstName: filteredBody.firstName,
+      lastName: filteredBody.lastName,
+      email: filteredBody.email,
+      phone: filteredBody.phone,
+      appliedRole: dbJob.title || "Auxosys Careers"
+    });
+
+    // Send confirmation email to candidate
+    emailService.sendApplicationReceivedEmailToCandidate({
+      CandidateName: `${filteredBody.firstName} ${filteredBody.lastName}`,
+      CandidateEmail: filteredBody.email,
+      JobTitle: dbJob.title || "Auxosys Careers",
+      ApplicationID: payload.public_id,
+      JobID: dbJob.public_id || dbJob.id,
+      Department: "Engineering", // You might want to pull this from the DB if available
+      ApplicationDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    });
+
     res.status(201).json({ success: true, data: data[0] });
   } catch (err) {
     console.error("Job Application Error:", err);
@@ -258,6 +287,21 @@ exports.updateApplicationStatus = async (req, res) => {
 
     const { data, error } = await supabase.from("applications").update(payload).eq("id", req.params.id).select();
     if (error) throw error;
+
+    if (status === "Rejected" && data && data.length > 0) {
+      const application = data[0];
+      const { data: jobData } = await supabase.from("careers").select("title, public_id, id").eq("id", application.job_id).single();
+      
+      const emailService = require("../utils/emailService");
+      emailService.sendApplicationRejectedEmailToCandidate({
+        CandidateName: `${application.firstName} ${application.lastName}`,
+        CandidateEmail: application.email,
+        JobTitle: jobData?.title || "Auxosys Careers",
+        ApplicationID: application.public_id || application.id,
+        JobID: jobData?.public_id || jobData?.id || application.job_id
+      });
+    }
+
     res.status(200).json({ success: true, data: data[0] });
   } catch (err) {
     res.status(500).json({ success: false, message: "Database Error: " + err.message });
