@@ -19,6 +19,7 @@ const legalRoutes = require("./routes/legalRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
 const configRoutes = require("./routes/configRoutes");
+const cookieRoutes = require("./routes/cookieRoutes");
 const { requirePermission } = require("./middleware/rbacMiddleware");
 
 const app = express();
@@ -100,6 +101,7 @@ app.use("/legal", requirePermission, legalRoutes);
 app.use("/contact", requirePermission, contactRoutes);
 app.use("/settings", requirePermission, settingsRoutes);
 app.use("/config", configRoutes);
+app.use("/cookies", cookieRoutes);
 
 // Mock notifications
 app.get("/notifications/count", (req, res) => res.json({ count: 0 }));
