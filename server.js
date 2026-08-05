@@ -111,6 +111,6 @@ app.get("/", (req, res) => {
   res.send("Auxosys Backend with Supabase is running!");
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

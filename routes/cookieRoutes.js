@@ -6,6 +6,7 @@ const { requirePermission } = require("../middleware/rbacMiddleware");
 // Public routes (Frontend banner)
 router.post("/consent", cookieController.submitConsent);
 router.get("/config", cookieController.getConfig);
+router.post("/config", cookieController.updateConfig);
 
 // Protected Admin routes
 // Notice we use the requirePermission middleware for all /admin routes

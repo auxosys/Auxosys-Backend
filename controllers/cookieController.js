@@ -119,6 +119,30 @@ exports.getConfig = async (req, res) => {
   }
 };
 
+exports.updateConfig = async (req, res) => {
+  try {
+    const { theme, position, expiry, status } = req.body;
+    
+    // We insert a new config version so there is history
+    const { data, error } = await supabase
+      .from("cookie_banner_settings")
+      .insert([
+        { 
+          version: "v2.0", 
+          config: { theme, position, expiry },
+          status: status || 'Publish'
+        }
+      ]);
+      
+    if (error) throw error;
+    
+    res.status(200).json({ success: true, message: "Settings saved successfully" });
+  } catch (error) {
+    console.error("Error in updateConfig:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 exports.getDashboardStats = async (req, res) => {
   try {
     const { data, error } = await supabase
