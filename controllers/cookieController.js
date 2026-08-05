@@ -17,6 +17,9 @@ exports.submitConsent = async (req, res) => {
       status
     } = req.body;
 
+    // Helper to remove nulls and empty strings to save DB storage space
+    const cleanPayload = (obj) => Object.fromEntries(Object.entries(obj).filter(([_, v]) => v != null && v !== ''));
+
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
     const ip_hash = hashIP(ip);
 
@@ -71,16 +74,16 @@ exports.submitConsent = async (req, res) => {
         return res.status(200).json({ success: true, message: "Consent updated" });
       }
     } else {
-      // Create new consent
+      // Create new consent using cleanPayload to avoid storing empty strings
       const { data: newConsent, error } = await supabase
         .from("cookie_consents")
-        .insert([{
+        .insert([cleanPayload({
           consent_id, visitor_id, session_id, categories, status,
           country_code, device_type, page_slug, source, referrer,
           utm_source, utm_medium, utm_campaign, utm_term, utm_content,
           privacy_policy_version, cookie_policy_version, terms_version, consent_version,
           ip_hash
-        }])
+        })])
         .select()
         .single();
         
@@ -145,30 +148,31 @@ exports.updateConfig = async (req, res) => {
 
 exports.getDashboardStats = async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from("cookie_consents")
-      .select("status, categories, country_code, page_slug, created_at");
-      
-    if (error) throw error;
-    
-    // Aggregate stats in memory (lean DB structure strategy)
-    let total = 0;
-    let acceptedAll = 0;
-    let rejectedAll = 0;
-    let customized = 0;
-    
-    data.forEach(c => {
-      total++;
-      if (c.categories === 15) acceptedAll++; // Assuming 1+2+4+8 = 15
-      else if (c.categories === 1) rejectedAll++;
-      else customized++;
-    });
+    // Perform efficient count queries instead of downloading all rows into memory
+    const [
+      { count: total, error: err1 },
+      { count: acceptedAll, error: err2 },
+      { count: rejectedAll, error: err3 }
+    ] = await Promise.all([
+      supabase.from("cookie_consents").select('*', { count: 'exact', head: true }),
+      supabase.from("cookie_consents").select('*', { count: 'exact', head: true }).eq('categories', 15),
+      supabase.from("cookie_consents").select('*', { count: 'exact', head: true }).eq('categories', 1)
+    ]);
+
+    if (err1) throw err1;
+    if (err2) throw err2;
+    if (err3) throw err3;
+
+    const customized = total - (acceptedAll + rejectedAll);
 
     res.status(200).json({
       success: true,
       data: {
-        total, acceptedAll, rejectedAll, customized,
-        raw: data // For advanced charting on frontend
+        total: total || 0,
+        acceptedAll: acceptedAll || 0,
+        rejectedAll: rejectedAll || 0,
+        customized: customized || 0,
+        raw: [] // Deprecated in-memory raw payload to save bandwidth
       }
     });
   } catch (error) {
