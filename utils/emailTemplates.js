@@ -202,7 +202,8 @@ exports.getApplicationReceivedTemplate = (data) => {
           <tr>
             <td style="padding: 16px 40px 28px;" class="fluid-padding">
               <p style="margin:0; font-size:12px; line-height:1.7; color:#7C8A8F; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align:center;">
-                You're receiving this email because you applied for a role at Auxosys via our careers page.
+                You're receiving this email because you applied for a role at Auxosys via our careers page.<br><br>
+                Copyright &copy; 2026 Auxosys. All rights reserved.
               </p>
             </td>
           </tr>
@@ -433,7 +434,8 @@ exports.getApplicationRejectedTemplate = (data) => {
           <tr>
             <td style="padding: 16px 40px 28px;" class="fluid-padding">
               <p style="margin:0; font-size:12px; line-height:1.7; color:#7C8A8F; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align:center;">
-                You're receiving this email because you applied for a role at Auxosys via our careers page.
+                You're receiving this email because you applied for a role at Auxosys via our careers page.<br><br>
+                Copyright &copy; 2026 Auxosys. All rights reserved.
               </p>
             </td>
           </tr>
