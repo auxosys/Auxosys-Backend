@@ -8,7 +8,7 @@ const MODULE_MAPPING = {
   "/subscriptions": "subscriptions",
 };
 
-const SITE_MANAGEMENT = ["/seo", "/settings", "/legal", "/access-control"];
+const SITE_MANAGEMENT = ["/api/v1/seo", "/seo", "/settings", "/legal", "/access-control"];
 
 exports.requirePermission = async (req, res, next) => {
   try {
@@ -22,6 +22,7 @@ exports.requirePermission = async (req, res, next) => {
       (baseUrl === "/job" && method === "POST" && path.includes("/apply")) ||
       (baseUrl === "/news" && method === "GET" && !path.includes("/admin")) ||
       (baseUrl === "/contact" && method === "POST") ||
+      (baseUrl === "/api/v1/seo" && method === "GET" && !path.includes("/logs")) ||
       (baseUrl === "/legal" && method === "GET" && !path.includes("/admin"));
 
     if (isPublic) {

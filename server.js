@@ -95,7 +95,7 @@ app.use("/dashboard", requirePermission, dashboardRoutes);
 app.use("/job", requirePermission, careerRoutes);
 app.use("/news", requirePermission, newsRoutes);
 app.use("/subscriptions", requirePermission, subscriptionRoutes);
-app.use("/seo", requirePermission, seoRoutes);
+app.use("/api/v1/seo", requirePermission, seoRoutes);
 app.use("/access-control", requirePermission, accessControlRoutes);
 app.use("/legal", requirePermission, legalRoutes);
 app.use("/contact", requirePermission, contactRoutes);

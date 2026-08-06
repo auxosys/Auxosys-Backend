@@ -5,9 +5,39 @@ const multer = require("multer");
 
 const upload = multer({ dest: "uploads/" });
 
-router.get("/", seoController.getGlobalSeo);
-router.patch("/", seoController.updateGlobalSeo);
-router.post("/og-image", upload.single("image"), seoController.uploadOgImage);
-router.post("/org-logo", upload.single("image"), seoController.uploadOrgLogo);
+// Global Settings
+router.get("/settings", seoController.getSettings);
+router.patch("/settings", seoController.updateSettings);
+
+// Sitemap Settings
+router.get("/sitemap", seoController.getSitemapSettings);
+router.patch("/sitemap", seoController.updateSitemapSettings);
+
+// Redirects
+router.get("/redirects", seoController.getRedirects);
+router.post("/redirects", seoController.createRedirect);
+router.patch("/redirects/:id", seoController.updateRedirect);
+router.delete("/redirects/:id", seoController.deleteRedirect);
+
+// Page Level SEO
+router.get("/pages", seoController.getPages);
+router.get("/pages/:id", seoController.getPageById);
+router.get("/page", seoController.getUnifiedPageSeo); // /api/v1/seo/page?slug=/path
+router.post("/pages", seoController.upsertPage);
+router.put("/pages/:id", seoController.updatePage);
+router.delete("/pages/:id", seoController.deletePage);
+
+// System Files
+router.get("/files", seoController.getSystemFiles);
+router.post("/files", seoController.upsertSystemFile);
+
+// Audit Logs
+router.get("/logs", seoController.getAuditLogs);
+
+// Image Upload (generic for OG, Favicon, Logo)
+router.post("/upload", upload.single("image"), seoController.uploadImage);
+
+// Legacy fallback (for older frontend compatibility if needed temporarily)
+router.get("/", seoController.getSettings);
 
 module.exports = router;
