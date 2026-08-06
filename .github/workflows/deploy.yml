@@ -35,21 +35,8 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Deploy to Server
-        run: echo "Replace this step with your actual deployment script"
+        run: echo "Triggering Render Deployment..."
         
-      # EXAMPLE: Render Deploy Hook
-      # - name: Trigger Render Deploy
-      #   run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
-      
-      # EXAMPLE: SSH to VPS
-      # - name: Deploy via SSH
-      #   uses: appleboy/ssh-action@master
-      #   with:
-      #     host: ${{ secrets.SERVER_HOST }}
-      #     username: ${{ secrets.SERVER_USER }}
-      #     key: ${{ secrets.SERVER_SSH_KEY }}
-      #     script: |
-      #       cd /var/www/auxosys-backend
-      #       git pull origin main
-      #       npm ci
-      #       pm2 restart backend
+      # Render Deploy Hook
+      - name: Trigger Render Deploy
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
