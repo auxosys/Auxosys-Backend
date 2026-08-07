@@ -99,7 +99,7 @@ async function renderCertificatePdf(certificate) {
   try {
     await page.setViewport({ width: 1122, height: 793 });
     console.log('Waiting for networkidle0...');
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 15000 }); // added 15s timeout
+    await page.setContent(html, { waitUntil: 'networkidle2', timeout: 15000 });
     console.log('Generating PDF buffer...');
     const pdfBuffer = await page.pdf({
       width: '1122px',
@@ -143,7 +143,7 @@ async function renderCertificatePng(certificate) {
   const page = await browser.newPage();
   try {
     await page.setViewport({ width: 1122, height: 793 });
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.setContent(html, { waitUntil: 'networkidle2' });
     return await page.screenshot({ type: 'png' });
   } finally {
     await page.close();
