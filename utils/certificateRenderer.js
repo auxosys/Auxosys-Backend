@@ -15,6 +15,26 @@ const path = require('path');
 const Handlebars = require('handlebars');
 const puppeteer = require('puppeteer');
 const { sanitizeConfig, toCssBackground, readableTextColor } = require('./colorEngine');
+const https = require('https');
+const http = require('http');
+
+function fetchBase64(url) {
+  if (!url) return Promise.resolve('');
+  if (url.startsWith('data:')) return Promise.resolve(url);
+  return new Promise((resolve) => {
+    const lib = url.startsWith('https') ? https : http;
+    lib.get(url, (res) => {
+      if (res.statusCode !== 200) return resolve(url);
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        const mime = res.headers['content-type'] || 'image/png';
+        resolve(`data:${mime};base64,${buffer.toString('base64')}`);
+      });
+    }).on('error', () => resolve(url));
+  });
+}
 
 const TEMPLATE_PATH = path.join(__dirname, '../templates/certificate.hbs');
 
@@ -73,6 +93,15 @@ async function renderCertificatePdf(certificate) {
       : Math.round((i / Math.max(colorConfig.colors.length - 1, 1)) * 100),
   }));
 
+  // Pre-fetch images as Base64 to ensure Puppeteer renders them instantly and reliably
+  const base64Qr = await fetchBase64(certificate.qr_code_url);
+  const base64Signatures = await Promise.all(
+    (certificate.signatures || []).map(async (sig) => ({
+      ...sig,
+      image_url: await fetchBase64(sig.image_url)
+    }))
+  );
+
   const html = template({
     isGradient,
     solidColor: colorConfig.colors[0],
@@ -87,9 +116,8 @@ async function renderCertificatePdf(certificate) {
     issueDateFormatted: new Date(certificate.issue_date || Date.now()).toLocaleDateString('en-IN', {
       day: 'numeric', month: 'long', year: 'numeric',
     }),
-    qrCodeUrl: certificate.qr_code_url || '',
-    qrCodeUrl: certificate.qr_code_url || '',
-    signatures: certificate.signatures || [],
+    qrCodeUrl: base64Qr,
+    signatures: base64Signatures,
     fields: certificate.fields || {},
   });
 
@@ -124,6 +152,15 @@ async function renderCertificatePng(certificate) {
     offset: Math.round((i / Math.max(colorConfig.colors.length - 1, 1)) * 100),
   }));
 
+  // Pre-fetch images as Base64 to ensure Puppeteer renders them instantly
+  const base64Qr = await fetchBase64(certificate.qr_code_url);
+  const base64Signatures = await Promise.all(
+    (certificate.signatures || []).map(async (sig) => ({
+      ...sig,
+      image_url: await fetchBase64(sig.image_url)
+    }))
+  );
+
   const html = template({
     isGradient,
     solidColor: colorConfig.colors[0],
@@ -134,8 +171,8 @@ async function renderCertificatePng(certificate) {
     recipientName: certificate.recipient_name || 'Recipient Name',
     certificateNumber: certificate.certificate_number || 'PREVIEW',
     issueDateFormatted: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }),
-    qrCodeUrl: certificate.qr_code_url || '',
-    signatures: certificate.signatures || [],
+    qrCodeUrl: base64Qr,
+    signatures: base64Signatures,
     fields: certificate.fields || {},
   });
 
