@@ -27,7 +27,16 @@ function generateVerificationToken() {
  */
 async function createCertificate(req, res) {
   try {
-    const { cert_type, recipient_name, recipient_email, fields, color_config, signature_ids, expires_at } = req.body;
+    const { 
+      cert_type, 
+      recipient_name, 
+      recipient_email, 
+      fields, 
+      color_config, 
+      signature_ids,
+      issue_date,
+      expires_at 
+    } = req.body;
 
     if (!cert_type || !recipient_name || !fields?.title) {
       return res.status(400).json({ error: 'cert_type, recipient_name, and fields.title are required.' });
@@ -82,7 +91,7 @@ async function createCertificate(req, res) {
       color_config,
       signatures,
       qr_code_url,
-      issue_date: new Date().toISOString(),
+      issue_date: issue_date ? new Date(issue_date).toISOString() : new Date().toISOString(),
     });
     console.log('PDF Rendered. Uploading to storage...');
     const pdf_url = await uploadToStorage(`pdfs/${id}.pdf`, pdfBuffer, 'application/pdf');
@@ -102,6 +111,7 @@ async function createCertificate(req, res) {
         signatures,
         qr_code_url,
         pdf_url,
+        issue_date: issue_date ? new Date(issue_date).toISOString() : new Date().toISOString(),
         expires_at: expires_at || null,
         created_by: req.user?.id || null,
       })
