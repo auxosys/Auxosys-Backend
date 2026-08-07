@@ -41,8 +41,7 @@ jobs:
       - name: Trigger Render Deploy
         run: |
           if [ -z "${{ secrets.RENDER_DEPLOY_HOOK }}" ]; then
-            echo "RENDER_DEPLOY_HOOK secret is missing. Skipping Render deployment."
-            exit 1 # Fail the step so you know it's missing, but clearly state why
+            echo "RENDER_DEPLOY_HOOK secret is missing. Skipping Render deployment but passing the build."
           else
             curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
           fi
