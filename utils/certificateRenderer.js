@@ -16,27 +16,45 @@ const Handlebars = require('handlebars');
 const puppeteer = require('puppeteer');
 const { sanitizeConfig, toCssBackground, readableTextColor } = require('./colorEngine');
 
-async function fetchBase64(url, retries = 2) {
-  if (!url) return '';
-  if (url.startsWith('data:')) return url;
-  
-  for (let i = 0; i <= retries; i++) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) {
-        const arrayBuffer = await res.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const mime = res.headers.get('content-type') || 'image/png';
-        return `data:${mime};base64,${buffer.toString('base64')}`;
+const https = require('https');
+const http = require('http');
+
+function fetchBase64(url, retries = 2, redirectCount = 0) {
+  if (!url) return Promise.resolve('');
+  if (url.startsWith('data:')) return Promise.resolve(url);
+  if (redirectCount > 5) return Promise.resolve(url);
+
+  return new Promise((resolve) => {
+    const lib = url.startsWith('https') ? https : http;
+    lib.get(url, (res) => {
+      // Handle redirects (Supabase uses these for storage)
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return resolve(fetchBase64(res.headers.location, retries, redirectCount + 1));
       }
-      if (i === retries) return url; // Fallback if all retries fail
-      await new Promise(r => setTimeout(r, 500)); // wait 500ms before retry
-    } catch (err) {
-      if (i === retries) return url;
-      await new Promise(r => setTimeout(r, 500));
-    }
-  }
-  return url;
+      
+      if (res.statusCode !== 200) {
+        if (retries > 0) {
+          setTimeout(() => resolve(fetchBase64(url, retries - 1, redirectCount)), 500);
+          return;
+        }
+        return resolve(url);
+      }
+      
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        const mime = res.headers['content-type'] || 'image/png';
+        resolve(`data:${mime};base64,${buffer.toString('base64')}`);
+      });
+    }).on('error', () => {
+      if (retries > 0) {
+        setTimeout(() => resolve(fetchBase64(url, retries - 1, redirectCount)), 500);
+        return;
+      }
+      resolve(url);
+    });
+  });
 }
 
 const TEMPLATE_PATH = path.join(__dirname, '../templates/certificate.hbs');
