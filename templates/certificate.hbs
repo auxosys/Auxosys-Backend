@@ -225,7 +225,7 @@
       width: 64px;
       height: 64px;
       margin-left: auto;
-      margin-top: 8px;
+      margin-bottom: 8px;
     }
 
     .watermark {
@@ -322,9 +322,9 @@
       </div>
 
       <div class="meta">
-        <div class="id">Cert. ID — {{certificateNumber}}</div>
-        <div class="id">Issued {{issueDateFormatted}}</div>
         <img class="qr" src="{{qrCodeUrl}}" alt="verify QR" />
+        <div class="id">Issued {{issueDateFormatted}}</div>
+        <div class="id">Cert. ID — {{certificateNumber}}</div>
       </div>
     </div>
   </div>
