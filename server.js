@@ -111,7 +111,7 @@ app.use("/legal", requirePermission, legalRoutes);
 app.use("/contact", requirePermission, contactRoutes);
 app.use("/settings", requirePermission, settingsRoutes);
 app.use("/config", requirePermission, configRoutes);
-app.use("/cookies", requirePermission, cookieRoutes);
+app.use("/cookies", cookieRoutes);
 app.use("/api/certificates/signatures", requirePermission, signatureRoutes);
 app.use("/api/certificates", certificateRoutes);
 app.use("/api/verify", verifyRoutes);
