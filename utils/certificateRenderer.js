@@ -147,8 +147,8 @@ async function renderCertificatePdf(certificate) {
   const page = await browser.newPage();
   try {
     await page.setViewport({ width: 1122, height: 793 });
-    console.log('Waiting for networkidle0...');
-    await page.setContent(html, { waitUntil: 'networkidle2', timeout: 15000 });
+    console.log('Waiting for load...');
+    await page.setContent(html, { waitUntil: 'load', timeout: 15000 });
     console.log('Generating PDF buffer...');
     const pdfBuffer = await page.pdf({
       width: '1122px',
