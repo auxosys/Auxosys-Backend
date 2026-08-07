@@ -124,6 +124,7 @@ async function createCertificate(req, res) {
     res.status(201).json({ certificate: data, verify_url: publicVerifyUrl });
   } catch (err) {
     console.error('createCertificate failed:', err);
+    global.lastCertError = { message: err.message, stack: err.stack, name: err.name };
     res.status(500).json({ error: 'Failed to generate certificate.', details: err.message, stack: err.stack });
   }
 }

@@ -125,6 +125,10 @@ app.get("/", (req, res) => {
   res.send("Auxosys Backend with Supabase is running!");
 });
 
+app.get("/api/debug-error", (req, res) => {
+  res.json(global.lastCertError || { message: "No error logged yet" });
+});
+
 if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
