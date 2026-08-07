@@ -30,7 +30,14 @@ const PORT = process.env.PORT || 5002;
 
 app.use(cors({
   origin: function (origin, callback) {
-    const allowedOrigins = ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"];
+    const allowedOrigins = [
+      "http://localhost:3000", 
+      "http://localhost:3001", 
+      "http://localhost:3002",
+      "https://auxosys.com",
+      "https://www.auxosys.com",
+      "https://admin.auxosys.com"
+    ];
     if (!origin) return callback(null, true);
     if (origin.endsWith(".vercel.app") || allowedOrigins.includes(origin)) {
       callback(null, true);
