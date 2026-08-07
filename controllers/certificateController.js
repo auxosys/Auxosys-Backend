@@ -111,7 +111,6 @@ async function createCertificate(req, res) {
         signatures,
         qr_code_url,
         pdf_url,
-        issue_date: issue_date ? new Date(issue_date).toISOString() : new Date().toISOString(),
         expires_at: expires_at || null,
         created_by: req.user?.id || null,
       })
