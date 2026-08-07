@@ -20,6 +20,9 @@ const contactRoutes = require("./routes/contactRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
 const configRoutes = require("./routes/configRoutes");
 const cookieRoutes = require("./routes/cookieRoutes");
+const certificateRoutes = require("./routes/certificates");
+const signatureRoutes = require("./routes/signatures");
+const verifyRoutes = require("./routes/verify");
 const { requirePermission } = require("./middleware/rbacMiddleware");
 
 const app = express();
@@ -100,8 +103,11 @@ app.use("/access-control", requirePermission, accessControlRoutes);
 app.use("/legal", requirePermission, legalRoutes);
 app.use("/contact", requirePermission, contactRoutes);
 app.use("/settings", requirePermission, settingsRoutes);
-app.use("/config", configRoutes);
-app.use("/cookies", cookieRoutes);
+app.use("/config", requirePermission, configRoutes);
+app.use("/cookies", requirePermission, cookieRoutes);
+app.use("/api/certificates/signatures", requirePermission, signatureRoutes);
+app.use("/api/certificates", certificateRoutes);
+app.use("/api/verify", verifyRoutes);
 
 // Mock notifications
 app.get("/notifications/count", (req, res) => res.json({ count: 0 }));
