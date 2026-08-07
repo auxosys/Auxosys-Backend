@@ -12,10 +12,14 @@
 const QRCode = require('qrcode');
 const { uploadToStorage } = require('./supabaseClient');
 
-const PUBLIC_SITE_URL = process.env.PUBLIC_SITE_URL || 'http://localhost:3001';
+const VERIFY_SITE_URL = process.env.VERIFY_SITE_URL || 'https://verify.auxosys.com';
 
 function buildVerifyUrl(certificateId, verificationToken) {
-  return `${PUBLIC_SITE_URL}/verify/${certificateId}?t=${verificationToken}`;
+  // If running locally, we fallback to the normal verify path, else use the clean subdomain
+  if (VERIFY_SITE_URL.includes('localhost')) {
+    return `${VERIFY_SITE_URL}/verify/${certificateId}?t=${verificationToken}`;
+  }
+  return `${VERIFY_SITE_URL}/${certificateId}?t=${verificationToken}`;
 }
 
 /**
