@@ -89,8 +89,8 @@ async function searchCertificates(req, res) {
   try {
     const { data, error } = await supabase
       .from('certificates')
-      .select('id, certificate_number, recipient_name, cert_type, status')
-      .or(`certificate_number.ilike.%${q}%,recipient_name.ilike.%${q}%`)
+      .select('id, certificate_number, recipient_name, cert_type, status, fields')
+      .or(`certificate_number.ilike.%${q}%,recipient_name.ilike.%${q}%,fields->>employeeId.ilike.%${q}%`)
       .limit(10);
     if (error) throw error;
     res.json({ results: data });
