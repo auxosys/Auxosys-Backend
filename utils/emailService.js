@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const https = require('https');
 
 // Create the transport using Brevo SMTP
 const transporter = nodemailer.createTransport({
@@ -110,13 +111,22 @@ exports.sendCertificateEmailToRecipient = async (certData) => {
     let pdfBuffer;
     if (certData.pdf_url) {
       try {
-        const response = await fetch(certData.pdf_url);
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer();
-          pdfBuffer = Buffer.from(arrayBuffer);
-        } else {
-          console.error("Failed to download PDF for attachment. Status:", response.status);
-        }
+        pdfBuffer = await new Promise((resolve, reject) => {
+          const req = https.get(certData.pdf_url, (res) => {
+            if (res.statusCode !== 200) {
+              return reject(new Error(`Status: ${res.statusCode}`));
+            }
+            const data = [];
+            res.on('data', chunk => data.push(chunk));
+            res.on('end', () => resolve(Buffer.concat(data)));
+          });
+          req.on('error', reject);
+          req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('Timeout'));
+          });
+          req.setTimeout(10000); // 10s timeout
+        });
       } catch (err) {
         console.error("Error downloading PDF for attachment:", err);
       }
