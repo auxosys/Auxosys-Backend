@@ -30,11 +30,9 @@ exports.getAllCareers = async (req, res) => {
     
     // Map application count for admin
     const mappedData = data ? data.map(job => {
-      let applicantCount = 0;
-      if (job.applications && job.applications.length > 0) {
-        applicantCount = job.applications[0].count || 0;
-      }
-      const newJob = { ...job, applicantCount };
+      const { created_at, ...rest } = job;
+      const applicantCount = job.applications?.[0]?.count || 0;
+      const newJob = { ...rest, applicantCount, createdAt: created_at };
       delete newJob.applications;
       return newJob;
     }) : [];
