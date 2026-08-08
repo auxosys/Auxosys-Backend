@@ -270,7 +270,11 @@ exports.getApplicantsByJobId = async (req, res) => {
       .eq("job_id", req.params.jobId)
       .order("created_at", { ascending: false });
     if (error) throw error;
-    res.status(200).json({ success: true, data: data || [] });
+    const mappedData = data ? data.map(app => {
+      const { created_at, ...rest } = app;
+      return { ...rest, createdAt: created_at };
+    }) : [];
+    res.status(200).json({ success: true, data: mappedData });
   } catch (err) {
     res.status(500).json({ success: false, message: "Database Error: " + err.message });
   }
