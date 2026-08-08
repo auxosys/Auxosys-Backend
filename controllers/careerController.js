@@ -159,7 +159,7 @@ exports.applyForJob = async (req, res) => {
 
   try {
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(resolvedJobId);
-    const { data: dbJob, error: dbError } = await supabase.from("careers").select("id, status").eq(isUUID ? "id" : "slug", resolvedJobId).single();
+    const { data: dbJob, error: dbError } = await supabase.from("careers").select("id, status, title, public_id").eq(isUUID ? "id" : "slug", resolvedJobId).single();
     
     if (dbError) throw dbError;
     if (!dbJob) return res.status(404).json({ success: false, message: "Job not found." });
@@ -293,7 +293,7 @@ exports.updateApplicationStatus = async (req, res) => {
       const { data: jobData } = await supabase.from("careers").select("title, public_id, id").eq("id", application.job_id).single();
       
       const emailService = require("../utils/emailService");
-      emailService.sendApplicationRejectedEmailToCandidate({
+      await emailService.sendApplicationRejectedEmailToCandidate({
         CandidateName: `${application.firstName} ${application.lastName}`,
         CandidateEmail: application.email,
         JobTitle: jobData?.title || "Auxosys Careers",

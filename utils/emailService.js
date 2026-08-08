@@ -51,15 +51,7 @@ exports.sendJobApplicationNotificationToAdmin = async (applicationData) => {
       from: `"Talent Acquisition Auxosys" <${SENDER}>`,
       to: ADMIN_EMAIL,
       subject: `New Job Application: ${firstName} ${lastName} for ${appliedRole || 'Open Position'}`,
-      html: `
-        <h2>New Job Application Received</h2>
-        <p><strong>Applicant:</strong> ${firstName} ${lastName}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Phone:</strong> ${phone || 'N/A'}</p>
-        <p><strong>Role Applied For:</strong> ${appliedRole || 'N/A'}</p>
-        <br />
-        <p>Please check the admin panel to view their resume and cover letter.</p>
-      `,
+      html: templates.getAdminNotificationTemplate(applicationData),
     };
 
     const info = await transporter.sendMail(mailOptions);

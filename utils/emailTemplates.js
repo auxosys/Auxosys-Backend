@@ -35,6 +35,9 @@ exports.getApplicationReceivedTemplate = (data) => {
     .sig-icon-cell table { margin: 0 auto !important; }
     .sig-text-cell { display: block !important; width: 100% !important; text-align: center !important; }
   }
+</style>
+</head>
+<body style="margin:0; padding:0; background-color:#F5F8F8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
 
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F5F8F8;">
     <tr>
@@ -51,7 +54,7 @@ exports.getApplicationReceivedTemplate = (data) => {
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td valign="middle" style="padding-right:10px;">
-                          <img src="https://raw.githubusercontent.com/auxosys/Auxosys-Frontend/main/public/Auxosys-icon-mono-white.png" width="28" height="28" alt="Auxosys" style="display:block; width:28px; height:28px;">
+                          <img src="https://auxosys.com/Auxosys-icon-mono-white.png" width="48" height="48" alt="Auxosys" style="display:block; width:48px; height:48px;">
                         </td>
                         <td valign="middle" style="font-size:19px; font-weight:800; color:#FFFFFF; letter-spacing:-0.02em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
                           AUXOSYS
@@ -177,7 +180,7 @@ exports.getApplicationReceivedTemplate = (data) => {
                           <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:44px; height:44px; background-color:#0E1B21; border-radius:10px;">
                             <tr>
                               <td align="center" valign="middle" style="width:44px; height:44px;">
-                                <img src="https://raw.githubusercontent.com/auxosys/Auxosys-Frontend/main/public/Auxosys-icon-mono-white.png" width="22" height="22" alt="Auxosys" style="display:block; width:22px; height:22px;">
+                                <img src="https://auxosys.com/Auxosys-icon-mono-white.png" width="22" height="22" alt="Auxosys" style="display:block; width:22px; height:22px;">
                               </td>
                             </tr>
                           </table>
@@ -279,7 +282,7 @@ exports.getApplicationRejectedTemplate = (data) => {
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td valign="middle" style="padding-right:10px;">
-                          <img src="https://raw.githubusercontent.com/auxosys/Auxosys-Frontend/main/public/Auxosys-icon-mono-white.png" width="28" height="28" alt="Auxosys" style="display:block; width:28px; height:28px;">
+                          <img src="https://auxosys.com/Auxosys-icon-mono-white.png" width="48" height="48" alt="Auxosys" style="display:block; width:48px; height:48px;">
                         </td>
                         <td valign="middle" style="font-size:19px; font-weight:800; color:#FFFFFF; letter-spacing:-0.02em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
                           AUXOSYS
@@ -409,7 +412,7 @@ exports.getApplicationRejectedTemplate = (data) => {
                           <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:44px; height:44px; background-color:#0E1B21; border-radius:10px;">
                             <tr>
                               <td align="center" valign="middle" style="width:44px; height:44px;">
-                                <img src="https://raw.githubusercontent.com/auxosys/Auxosys-Frontend/main/public/Auxosys-icon-mono-white.png" width="22" height="22" alt="Auxosys" style="display:block; width:22px; height:22px;">
+                                <img src="https://auxosys.com/Auxosys-icon-mono-white.png" width="22" height="22" alt="Auxosys" style="display:block; width:22px; height:22px;">
                               </td>
                             </tr>
                           </table>
@@ -446,6 +449,26 @@ exports.getApplicationRejectedTemplate = (data) => {
     </tr>
   </table>
 
+</body>
+</html>`;
+};
+exports.getAdminNotificationTemplate = (data) => {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>New Job Application</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #F5F8F8; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px;">
+    <h2>New Job Application Received</h2>
+    <p><strong>Applicant:</strong> ${data.firstName} ${data.lastName}</p>
+    <p><strong>Email:</strong> ${data.email}</p>
+    <p><strong>Phone:</strong> ${data.phone || 'N/A'}</p>
+    <p><strong>Role Applied For:</strong> ${data.appliedRole || 'N/A'}</p>
+    <br />
+    <p>Please check the <a href="https://admin.auxosys.com">admin panel</a> to view their application, resume, and cover letter.</p>
+  </div>
 </body>
 </html>`;
 };
