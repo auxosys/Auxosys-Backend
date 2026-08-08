@@ -1,4 +1,5 @@
 const supabase = require("../config/supabaseClient");
+const crypto = require("crypto");
 
 const logAudit = async (req, action, section, old_value, new_value) => {
   try {
@@ -411,6 +412,7 @@ exports.upsertSitemapLink = async (req, res) => {
     if (payload.id) {
       result = await supabase.from("seo_sitemap_links").update(payload).eq("id", payload.id).select().single();
     } else {
+      payload.id = crypto.randomUUID();
       result = await supabase.from("seo_sitemap_links").insert([payload]).select().single();
     }
     
