@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const seoController = require("../controllers/seoController");
+const analyticsController = require("../controllers/analyticsController");
 const multer = require("multer");
 
 const upload = multer({ dest: "uploads/" });
@@ -22,6 +23,9 @@ router.post("/sitemap-links/validate", seoController.validateSitemapUrl);
 
 // Google Indexing
 router.post("/indexing", seoController.pingGoogleIndexing);
+
+// Google Analytics
+router.get("/analytics", analyticsController.getAnalytics);
 
 // Redirects
 router.get("/redirects", seoController.getRedirects);

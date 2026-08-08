@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google-analytics/data": "^7.0.0",
     "@supabase/supabase-js": "^2.110.0",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.6",
