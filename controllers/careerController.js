@@ -168,6 +168,20 @@ exports.applyForJob = async (req, res) => {
     
     resolvedJobId = dbJob.id; // Ensure we use the UUID for the foreign key
 
+    // Check if the user has already applied
+    if (req.body.email) {
+      const { data: existingApp } = await supabase
+        .from("applications")
+        .select("id")
+        .eq("job_id", resolvedJobId)
+        .eq("email", req.body.email)
+        .maybeSingle();
+      
+      if (existingApp) {
+        return res.status(400).json({ success: false, message: "You have already submitted an application for this role." });
+      }
+    }
+
     const allowedFields = [
       "firstName", "lastName", "email", "phone", "country", "gender", "dob", "linkedin", "github", "portfolio",
       "currentCompany", "currentDesignation", "currentCtc", "expectedCtc", "noticePeriod", "experience",
