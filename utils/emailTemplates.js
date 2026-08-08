@@ -474,9 +474,10 @@ exports.getAdminNotificationTemplate = (data) => {
 };
 
 exports.getCertificateEmailTemplate = (certData) => {
-  const { recipient_name, cert_type, issued_at, certificate_number, pdf_url } = certData;
+  const { recipient_name, cert_type, issued_at, certificate_number, pdf_url, fields } = certData;
   const issueDate = new Date(issued_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
   const verifyLink = `https://verify.auxosys.com/${certData.id}`;
+  const employeeId = fields?.employeeId;
 
   let title, message;
   const typeLower = cert_type.toLowerCase();
@@ -527,13 +528,22 @@ exports.getCertificateEmailTemplate = (certData) => {
       <td align="center" style="padding: 16px 12px;">
         <table role="presentation" class="email-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:600px; background-color:#FFFFFF; border-radius:16px; overflow:hidden; border:1px solid #E7ECEC;">
           
-          <!-- Header -->
+          <!-- Header: logo lockup -->
           <tr>
             <td style="background-color:#0E1B21; padding: 26px 40px;" class="fluid-padding">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="left" valign="middle">
-                    <img src="https://res.cloudinary.com/dztz0pufh/image/upload/v1740924151/l9n6szq1z5gftv1h1wob.png" alt="Auxosys Logo" width="130" style="display:block; font-family:sans-serif; color:#FFFFFF; font-size:18px; font-weight:bold;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td valign="middle" style="padding-right:10px;">
+                          <img src="https://auxosys.com/Auxosys-icon-mono-white.png" width="48" height="48" alt="Auxosys" style="display:block; width:48px; height:48px;">
+                        </td>
+                        <td valign="middle" style="font-size:19px; font-weight:800; color:#FFFFFF; letter-spacing:-0.02em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                          AUXOSYS
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
@@ -542,67 +552,139 @@ exports.getCertificateEmailTemplate = (certData) => {
 
           <!-- Main Content -->
           <tr>
-            <td style="padding: 40px 40px 20px 40px;" class="fluid-padding">
-              <h1 class="headline" style="margin:0 0 16px 0; font-size:24px; color:#0E1B21; font-weight:700; letter-spacing:-0.4px;">
-                Hi ${recipient_name},
-              </h1>
-              <p style="margin:0 0 20px 0; font-size:15px; color:#4B5563; line-height:1.6;">
-                ${message}
-              </p>
-              
-              <!-- Certificate Details Card -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px; background-color:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px;">
+            <td style="padding: 36px 40px;" class="fluid-padding">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="padding: 20px;">
-                    <p style="margin:0 0 8px 0; font-size:13px; color:#64748B;">Certificate Details</p>
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+                    <h1 class="headline" style="margin:0 0 20px; font-size:22px; font-weight:800; color:#0E1B21; letter-spacing:-0.01em;">
+                      ${title}
+                    </h1>
+
+                    <p style="margin:0 0 16px; font-size:15px; line-height:1.7; color:#10201F;">
+                      Dear ${recipient_name},
+                    </p>
+
+                    <p style="margin:0 0 16px; font-size:15px; line-height:1.7; color:#10201F;">
+                      ${message}
+                    </p>
+                    
+                    <!-- Certificate Details Card -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F5F8F8; border:1px solid #E7ECEC; border-radius:12px; margin: 24px 0;">
                       <tr>
-                        <td width="35%" style="padding: 6px 0; font-size:14px; color:#475569; font-weight:500;">Type:</td>
-                        <td width="65%" style="padding: 6px 0; font-size:14px; color:#0F172A; font-weight:600;">${cert_type}</td>
+                        <td style="padding: 22px 26px;" class="fluid-padding-sm">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td colspan="2" style="padding-bottom:14px; font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#0C8074;">
+                                Certificate Details
+                              </td>
+                            </tr>
+                            <tr>
+                              <td class="details-label" style="padding:8px 0; font-size:13px; color:#7C8A8F; width:44%;">Type</td>
+                              <td class="details-value" style="padding:8px 0; font-size:14px; font-weight:700; color:#0E1B21; text-align:right;">${cert_type}</td>
+                            </tr>
+                            <tr>
+                              <td class="details-label" style="padding:8px 0; font-size:13px; color:#7C8A8F; border-top:1px solid #E7ECEC;">Issued Date</td>
+                              <td class="details-value" style="padding:8px 0; font-size:14px; font-weight:600; color:#10201F; text-align:right; border-top:1px solid #E7ECEC;">${issueDate}</td>
+                            </tr>
+                            <tr>
+                              <td class="details-label" style="padding:8px 0; font-size:13px; color:#7C8A8F; border-top:1px solid #E7ECEC;">Certificate No</td>
+                              <td class="details-value" style="padding:8px 0; font-size:14px; font-weight:600; color:#10201F; text-align:right; border-top:1px solid #E7ECEC;">${certificate_number}</td>
+                            </tr>
+                            ${employeeId ? `
+                            <tr>
+                              <td class="details-label" style="padding:8px 0; font-size:13px; color:#7C8A8F; border-top:1px solid #E7ECEC;">Employee ID</td>
+                              <td class="details-value" style="padding:8px 0; font-size:14px; font-weight:600; color:#10201F; text-align:right; border-top:1px solid #E7ECEC;">${employeeId}</td>
+                            </tr>` : ''}
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Buttons -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+                      <tr>
+                        <td align="left" class="stack-btn">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td style="border-radius:10px; background-color:#0FB5A6;">
+                                <a href="${pdf_url}" target="_blank" style="display:inline-block; padding:13px 26px; font-size:14px; font-weight:700; color:#FFFFFF; text-decoration:none; border-radius:10px;">
+                                  Download Certificate PDF →
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
                       </tr>
                       <tr>
-                        <td style="padding: 6px 0; font-size:14px; color:#475569; font-weight:500;">Issued Date:</td>
-                        <td style="padding: 6px 0; font-size:14px; color:#0F172A; font-weight:600;">${issueDate}</td>
+                        <td align="left" class="stack-btn" style="padding-top:12px;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td style="border-radius:10px; background-color:#F5F8F8; border:1px solid #E7ECEC;">
+                                <a href="${verifyLink}" target="_blank" style="display:inline-block; padding:13px 26px; font-size:14px; font-weight:700; color:#10201F; text-decoration:none; border-radius:10px;">
+                                  Verify Online
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
                       </tr>
+                    </table>
+
+                    <p style="margin:26px 0 0; font-size:15px; line-height:1.7; color:#10201F;">
+                      We have also attached a physical copy of the PDF to this email for your records.
+                    </p>
+
+                    <p style="margin:22px 0 0; font-size:15px; line-height:1.7; color:#10201F;">
+                      Best regards,<br>
+                      <strong>The Auxosys Team</strong>
+                    </p>
+
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Signature card -->
+          <tr>
+            <td style="padding: 28px 40px 8px;" class="fluid-padding">
+              <table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F5F8F8; border:1px solid #E7ECEC; border-radius:14px;">
+                <tr>
+                  <td style="padding: 22px 24px;" class="fluid-padding-sm">
+                    <table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" class="sig-card-inner">
                       <tr>
-                        <td style="padding: 6px 0; font-size:14px; color:#475569; font-weight:500;">Certificate No:</td>
-                        <td style="padding: 6px 0; font-size:14px; color:#0F172A; font-weight:600;">${certificate_number}</td>
+                        <td class="sig-icon-cell" valign="middle" width="52" style="padding-right:16px;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:44px; height:44px; background-color:#0E1B21; border-radius:10px;">
+                            <tr>
+                              <td align="center" valign="middle" style="width:44px; height:44px;">
+                                <img src="https://auxosys.com/Auxosys-icon-mono-white.png" width="22" height="22" alt="Auxosys" style="display:block; width:22px; height:22px;">
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                        <td class="sig-text-cell" valign="middle" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                          <div style="font-size:15px; font-weight:800; letter-spacing:0.02em; margin-bottom:4px;">
+                            <a href="https://auxosys.com" style="color:#0E1B21; text-decoration:none;">AUXOSYS</a>
+                          </div>
+                          <div style="font-size:13px; color:#56656B;">
+                            <span style="white-space:nowrap;">🌐 <a href="https://auxosys.com" style="color:#0FB5A6; text-decoration:none; font-weight:600;">auxosys.com</a></span>
+                          </div>
+                        </td>
                       </tr>
                     </table>
                   </td>
                 </tr>
               </table>
-
-              <!-- Button -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
-                <tr>
-                  <td align="left" class="stack-btn">
-                    <a href="${pdf_url}" target="_blank" style="display:inline-block; padding:14px 28px; background-color:#0FB5A6; color:#FFFFFF; text-decoration:none; border-radius:8px; font-weight:600; font-size:15px; letter-spacing:0.3px; transition: background-color 0.2s ease;">Download Certificate PDF</a>
-                  </td>
-                </tr>
-                <tr>
-                  <td align="left" class="stack-btn" style="padding-top: 10px;">
-                    <a href="${verifyLink}" target="_blank" style="display:inline-block; padding:14px 28px; background-color:#F1F5F9; color:#0F172A; text-decoration:none; border-radius:8px; font-weight:600; font-size:15px; letter-spacing:0.3px; border: 1px solid #E2E8F0;">Verify Online</a>
-                  </td>
-                </tr>
-              </table>
-
-              <p style="margin:0 0 16px 0; font-size:14px; color:#64748B; line-height:1.5;">
-                We have also attached a physical copy of the PDF to this email for your records.
-              </p>
-              
-              <p style="margin:0; font-size:14px; color:#64748B; line-height:1.5;">
-                Best regards,<br>
-                <strong>The Auxosys Team</strong>
-              </p>
             </td>
           </tr>
 
-          <!-- Footer -->
+          <!-- Legal / disclaimer -->
           <tr>
-            <td style="background-color:#F9FAFB; border-top:1px solid #E5E7EB; padding: 24px 40px;" class="fluid-padding">
-              <p style="margin:0 0 8px 0; font-size:12px; color:#9CA3AF; text-align:center;">
-                © ${new Date().getFullYear()} Auxosys. All rights reserved.
+            <td style="padding: 16px 40px 28px;" class="fluid-padding">
+              <p style="margin:0; font-size:12px; line-height:1.7; color:#7C8A8F; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align:center;">
+                You're receiving this email because a certificate was issued to you by Auxosys.<br><br>
+                Copyright &copy; ${new Date().getFullYear()} Auxosys. All rights reserved.
               </p>
             </td>
           </tr>

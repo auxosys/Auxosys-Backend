@@ -182,7 +182,7 @@ exports.sendCertificateEmailToRecipient = async (certData) => {
     }
 
     const payload = {
-      sender: { email: SYSTEM_SENDER, name: "Auxosys Certificates" },
+      sender: { email: SYSTEM_SENDER, name: "Auxosys" },
       to: [{ email: certData.recipient_email }],
       subject: `Your ${certData.cert_type} Certificate | Auxosys`,
       htmlContent: htmlContent
