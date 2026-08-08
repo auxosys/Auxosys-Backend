@@ -9,6 +9,7 @@ const {
   revokeCertificate,
   downloadCertificate,
   sendCertificateEmail,
+  updateCertificate,
 } = require('../controllers/certificateController');
 
 // Public route for downloading PDFs
@@ -20,6 +21,7 @@ router.get('/', listCertificates);
 router.post('/', createCertificate);
 router.post('/preview', previewCertificate);
 router.get('/:id', getCertificate);
+router.put('/:id', updateCertificate);
 router.post('/:id/revoke', revokeCertificate);
 router.post('/:id/send-email', sendCertificateEmail);
 

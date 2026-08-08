@@ -171,6 +171,107 @@ async function listCertificates(req, res) {
   }
 }
 
+/**
+ * PUT /api/certificates/:id
+ */
+async function updateCertificate(req, res) {
+  try {
+    const { id } = req.params;
+    const { 
+      cert_type, 
+      recipient_name, 
+      recipient_email, 
+      fields, 
+      color_config, 
+      signature_ids,
+      issue_date
+    } = req.body;
+
+    if (!cert_type || !recipient_name || !fields?.title) {
+      return res.status(400).json({ error: 'cert_type, recipient_name, and fields.title are required.' });
+    }
+
+    // 1. Fetch existing certificate
+    const { data: existingCert, error: fetchErr } = await supabase
+      .from('certificates')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchErr || !existingCert) {
+      return res.status(404).json({ error: 'Certificate not found' });
+    }
+    
+    if (existingCert.status !== 'valid') {
+      return res.status(400).json({ error: 'Cannot edit a revoked certificate.' });
+    }
+
+    // 2. Fetch signatures
+    let signatures = [];
+    if (Array.isArray(signature_ids) && signature_ids.length > 0) {
+      const { data: sigRows, error: sigErr } = await supabase
+        .from('certificate_signatures')
+        .select('*')
+        .in('id', signature_ids);
+      if (sigErr) throw sigErr;
+
+      signatures = signature_ids
+        .map((sigId) => sigRows.find((s) => s.id === sigId))
+        .filter(Boolean)
+        .map((s) => ({
+          signature_id: s.id,
+          name: s.name,
+          designation: s.designation,
+          image_url: s.image_url,
+        }));
+    }
+
+    // 3. Re-render PDF with existing certificate_number and qr_code_url
+    console.log('Re-rendering PDF for edit...');
+    const pdfBuffer = await renderCertificatePdf({
+      certificate_number: existingCert.certificate_number,
+      recipient_name,
+      cert_type,
+      fields,
+      color_config,
+      signatures,
+      qr_code_url: existingCert.qr_code_url,
+      issue_date: issue_date ? new Date(issue_date).toISOString() : existingCert.issued_at,
+    });
+
+    // 4. Overwrite PDF in storage
+    console.log('Overwriting PDF in storage...');
+    const pdf_url = await uploadToStorage(`pdfs/${id}.pdf`, pdfBuffer, 'application/pdf');
+
+    // 5. Update Database Record
+    console.log('Updating database record...');
+    const { data, error } = await supabase
+      .from('certificates')
+      .update({
+        cert_type: cert_type === 'custom' ? (req.body.customType || 'Custom') : cert_type,
+        recipient_name,
+        recipient_email: recipient_email || null,
+        fields,
+        color_config,
+        signatures, // Note: We don't increment usage count on edit for simplicity, or we could if needed.
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase update error:', error);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error('Certificate update error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 /** GET /api/certificates/:id */
 async function getCertificate(req, res) {
   try {
@@ -246,6 +347,7 @@ module.exports = {
   revokeCertificate,
   downloadCertificate,
   sendCertificateEmail,
+  updateCertificate,
 };
 
 /**
