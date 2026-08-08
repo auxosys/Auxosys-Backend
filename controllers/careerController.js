@@ -57,7 +57,12 @@ exports.getCareerById = async (req, res) => {
       .eq(isUUID ? "id" : "slug", req.params.id)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ success: false, message: "Job not found" });
+      }
+      throw error;
+    }
     if (!data) return res.status(404).json({ success: false, message: "Job not found" });
     
     let applicantCount = 0;
