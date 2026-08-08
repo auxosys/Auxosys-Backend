@@ -101,3 +101,49 @@ exports.sendApplicationRejectedEmailToCandidate = async (candidateData) => {
     return false;
   }
 };
+
+exports.sendCertificateEmailToRecipient = async (certData) => {
+  try {
+    const htmlContent = templates.getCertificateEmailTemplate(certData);
+    
+    // Download the PDF into a buffer to attach it
+    let pdfBuffer;
+    if (certData.pdf_url) {
+      try {
+        const response = await fetch(certData.pdf_url);
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          pdfBuffer = Buffer.from(arrayBuffer);
+        } else {
+          console.error("Failed to download PDF for attachment. Status:", response.status);
+        }
+      } catch (err) {
+        console.error("Error downloading PDF for attachment:", err);
+      }
+    }
+
+    const mailOptions = {
+      from: `"Auxosys Certificates" <${SYSTEM_SENDER}>`,
+      to: certData.recipient_email,
+      subject: `Your ${certData.cert_type} Certificate | Auxosys`,
+      html: htmlContent,
+    };
+
+    if (pdfBuffer) {
+      mailOptions.attachments = [
+        {
+          filename: `${certData.certificate_number || 'certificate'}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf'
+        }
+      ];
+    }
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Certificate email sent: %s", info.messageId);
+    return true;
+  } catch (error) {
+    console.error("Error sending certificate email:", error);
+    return false;
+  }
+};

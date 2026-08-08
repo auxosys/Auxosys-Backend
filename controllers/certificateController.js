@@ -212,6 +212,32 @@ async function downloadCertificate(req, res) {
   }
 }
 
+/** POST /api/certificates/:id/send-email */
+async function sendCertificateEmail(req, res) {
+  try {
+    const { data, error } = await supabase
+      .from('certificates')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !data) return res.status(404).json({ error: 'Certificate not found.' });
+    if (!data.recipient_email) return res.status(400).json({ error: 'Certificate does not have a recipient email.' });
+
+    const emailService = require('../utils/emailService');
+    const success = await emailService.sendCertificateEmailToRecipient(data);
+    
+    if (success) {
+      res.json({ message: 'Email sent successfully.' });
+    } else {
+      res.status(500).json({ error: 'Failed to send email.' });
+    }
+  } catch (err) {
+    console.error('sendCertificateEmail failed:', err);
+    res.status(500).json({ error: 'Failed to send email.' });
+  }
+}
+
 module.exports = {
   createCertificate,
   previewCertificate,
@@ -219,6 +245,7 @@ module.exports = {
   getCertificate,
   revokeCertificate,
   downloadCertificate,
+  sendCertificateEmail,
 };
 
 /**

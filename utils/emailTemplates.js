@@ -472,3 +472,145 @@ exports.getAdminNotificationTemplate = (data) => {
 </body>
 </html>`;
 };
+
+exports.getCertificateEmailTemplate = (certData) => {
+  const { recipient_name, cert_type, issued_at, certificate_number, pdf_url } = certData;
+  const issueDate = new Date(issued_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  const verifyLink = `https://verify.auxosys.com/${certData.id}`;
+
+  let title, message;
+  const typeLower = cert_type.toLowerCase();
+  
+  if (typeLower.includes('appreciation')) {
+    title = 'Your Certificate of Appreciation';
+    message = `We want to extend our sincerest gratitude for your valuable contributions. Please find attached your official Certificate of Appreciation. This certificate serves as a token of our recognition for your outstanding efforts.`;
+  } else if (typeLower.includes('completion')) {
+    title = 'Your Certificate of Completion';
+    message = `Congratulations on successfully completing your program! Please find attached your official Certificate of Completion. We commend you on your dedication and hard work.`;
+  } else if (typeLower.includes('internship')) {
+    title = 'Your Certificate of Internship';
+    message = `Congratulations on successfully completing your internship with us! Please find attached your official Certificate of Internship. We appreciate all your hard work and wish you the best in your future endeavors.`;
+  } else if (typeLower.includes('experience')) {
+    title = 'Your Experience Letter';
+    message = `Please find attached your official Experience Letter from Auxosys. We appreciate your time and contributions during your tenure with us.`;
+  } else {
+    title = `Your Certificate (${cert_type})`;
+    message = `Please find attached your official ${cert_type} certificate from Auxosys.`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>${title} | Auxosys</title>
+<style>
+  body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+  table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+  img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+  body { margin: 0; padding: 0; width: 100% !important; height: 100% !important; background-color: #F5F8F8; }
+  a { color: #0FB5A6; }
+  
+  @media screen and (max-width: 600px) {
+    .email-container { width: 100% !important; border-radius: 0 !important; }
+    .fluid-padding { padding-left: 22px !important; padding-right: 22px !important; }
+    .headline { font-size: 19px !important; }
+    .stack-btn { display: block !important; width: 100% !important; }
+    .stack-btn a { display: block !important; width: 100% !important; box-sizing: border-box !important; text-align: center !important; }
+  }
+</style>
+</head>
+<body style="margin:0; padding:0; background-color:#F5F8F8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F5F8F8;">
+    <tr>
+      <td align="center" style="padding: 16px 12px;">
+        <table role="presentation" class="email-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:600px; background-color:#FFFFFF; border-radius:16px; overflow:hidden; border:1px solid #E7ECEC;">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#0E1B21; padding: 26px 40px;" class="fluid-padding">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="left" valign="middle">
+                    <img src="https://res.cloudinary.com/dztz0pufh/image/upload/v1740924151/l9n6szq1z5gftv1h1wob.png" alt="Auxosys Logo" width="130" style="display:block; font-family:sans-serif; color:#FFFFFF; font-size:18px; font-weight:bold;">
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Main Content -->
+          <tr>
+            <td style="padding: 40px 40px 20px 40px;" class="fluid-padding">
+              <h1 class="headline" style="margin:0 0 16px 0; font-size:24px; color:#0E1B21; font-weight:700; letter-spacing:-0.4px;">
+                Hi ${recipient_name},
+              </h1>
+              <p style="margin:0 0 20px 0; font-size:15px; color:#4B5563; line-height:1.6;">
+                ${message}
+              </p>
+              
+              <!-- Certificate Details Card -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px; background-color:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="margin:0 0 8px 0; font-size:13px; color:#64748B;">Certificate Details</p>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td width="35%" style="padding: 6px 0; font-size:14px; color:#475569; font-weight:500;">Type:</td>
+                        <td width="65%" style="padding: 6px 0; font-size:14px; color:#0F172A; font-weight:600;">${cert_type}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; font-size:14px; color:#475569; font-weight:500;">Issued Date:</td>
+                        <td style="padding: 6px 0; font-size:14px; color:#0F172A; font-weight:600;">${issueDate}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; font-size:14px; color:#475569; font-weight:500;">Certificate No:</td>
+                        <td style="padding: 6px 0; font-size:14px; color:#0F172A; font-weight:600;">${certificate_number}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Button -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+                <tr>
+                  <td align="left" class="stack-btn">
+                    <a href="${pdf_url}" target="_blank" style="display:inline-block; padding:14px 28px; background-color:#0FB5A6; color:#FFFFFF; text-decoration:none; border-radius:8px; font-weight:600; font-size:15px; letter-spacing:0.3px; transition: background-color 0.2s ease;">Download Certificate PDF</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="left" class="stack-btn" style="padding-top: 10px;">
+                    <a href="${verifyLink}" target="_blank" style="display:inline-block; padding:14px 28px; background-color:#F1F5F9; color:#0F172A; text-decoration:none; border-radius:8px; font-weight:600; font-size:15px; letter-spacing:0.3px; border: 1px solid #E2E8F0;">Verify Online</a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 16px 0; font-size:14px; color:#64748B; line-height:1.5;">
+                We have also attached a physical copy of the PDF to this email for your records.
+              </p>
+              
+              <p style="margin:0; font-size:14px; color:#64748B; line-height:1.5;">
+                Best regards,<br>
+                <strong>The Auxosys Team</strong>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#F9FAFB; border-top:1px solid #E5E7EB; padding: 24px 40px;" class="fluid-padding">
+              <p style="margin:0 0 8px 0; font-size:12px; color:#9CA3AF; text-align:center;">
+                © ${new Date().getFullYear()} Auxosys. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+};
