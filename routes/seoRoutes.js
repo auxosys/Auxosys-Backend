@@ -13,6 +13,13 @@ router.patch("/settings", seoController.updateSettings);
 router.get("/sitemap", seoController.getSitemapSettings);
 router.patch("/sitemap", seoController.updateSitemapSettings);
 
+// Sitemap Links (Custom URL Manager)
+router.get("/sitemap-links", seoController.getSitemapLinks);
+router.post("/sitemap-links", seoController.upsertSitemapLink);
+router.delete("/sitemap-links/:id", seoController.deleteSitemapLink);
+router.post("/sitemap-links/bulk", seoController.bulkSitemapLinksAction);
+router.post("/sitemap-links/validate", seoController.validateSitemapUrl);
+
 // Redirects
 router.get("/redirects", seoController.getRedirects);
 router.post("/redirects", seoController.createRedirect);

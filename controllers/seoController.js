@@ -385,3 +385,96 @@ exports.uploadImage = (req, res) => {
   const url = `/uploads/${req.file.filename}`;
   res.status(200).json({ success: true, data: { url, key: req.file.filename } });
 };
+
+// ---------------------------------------------------------
+// CUSTOM SITEMAP LINKS
+// ---------------------------------------------------------
+exports.getSitemapLinks = async (req, res) => {
+  try {
+    const { data, error } = await supabase.from("seo_sitemap_links").select("*").order("created_at", { ascending: false });
+    if (error) throw error;
+    res.status(200).json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.upsertSitemapLink = async (req, res) => {
+  try {
+    let payload = { ...req.body, updated_at: new Date() };
+    if (!payload.url) throw new Error("URL is required");
+    
+    // Normalize URL
+    if (!payload.url.startsWith("http")) payload.url = "https://www.auxosys.com" + (payload.url.startsWith("/") ? "" : "/") + payload.url;
+
+    let result;
+    if (payload.id) {
+      result = await supabase.from("seo_sitemap_links").update(payload).eq("id", payload.id).select().single();
+    } else {
+      result = await supabase.from("seo_sitemap_links").insert([payload]).select().single();
+    }
+    
+    if (result.error) throw result.error;
+    await logAudit(req, "UPSERT", "Sitemap Links", null, result.data);
+    res.status(200).json({ success: true, data: result.data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.deleteSitemapLink = async (req, res) => {
+  try {
+    const { error } = await supabase.from("seo_sitemap_links").delete().eq("id", req.params.id);
+    if (error) throw error;
+    await logAudit(req, "DELETE", "Sitemap Links", { id: req.params.id }, null);
+    res.status(200).json({ success: true, message: "Sitemap link deleted" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.bulkSitemapLinksAction = async (req, res) => {
+  try {
+    const { ids, action } = req.body;
+    if (!ids || !ids.length) throw new Error("No IDs provided");
+
+    if (action === "enable") {
+      const { error } = await supabase.from("seo_sitemap_links").update({ status: true }).in("id", ids);
+      if (error) throw error;
+    } else if (action === "disable") {
+      const { error } = await supabase.from("seo_sitemap_links").update({ status: false }).in("id", ids);
+      if (error) throw error;
+    } else if (action === "delete") {
+      const { error } = await supabase.from("seo_sitemap_links").delete().in("id", ids);
+      if (error) throw error;
+    } else {
+      throw new Error("Invalid bulk action");
+    }
+
+    await logAudit(req, "BULK_ACTION", "Sitemap Links", null, { action, ids });
+    res.status(200).json({ success: true, message: `Successfully applied ${action} to ${ids.length} links` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.validateSitemapUrl = async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) throw new Error("URL is required");
+
+    let normalizedUrl = url;
+    if (!normalizedUrl.startsWith("http")) {
+      normalizedUrl = "https://www.auxosys.com" + (normalizedUrl.startsWith("/") ? "" : "/") + normalizedUrl;
+    }
+
+    const response = await fetch(normalizedUrl, { method: "HEAD" });
+    if (response.ok) {
+      res.status(200).json({ success: true, message: "URL is valid and reachable" });
+    } else {
+      res.status(400).json({ success: false, message: `URL returned status: ${response.status}` });
+    }
+  } catch (err) {
+    res.status(400).json({ success: false, message: "URL is unreachable or malformed" });
+  }
+};
