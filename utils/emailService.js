@@ -11,7 +11,8 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const SENDER = process.env.SYSTEM_SENDER_EMAIL || "noreply@auxosys.com";
+const SYSTEM_SENDER = process.env.SYSTEM_SENDER_EMAIL || "noreply@auxosys.com";
+const CAREERS_SENDER = process.env.CAREERS_SENDER_EMAIL || "careers@auxosys.com";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL_ADDRESS || "admin@auxosys.com";
 
 exports.sendContactNotificationToAdmin = async (contactData) => {
@@ -19,7 +20,7 @@ exports.sendContactNotificationToAdmin = async (contactData) => {
     const { name, email, phone, subject, message } = contactData;
     
     const mailOptions = {
-      from: `"Auxosys System" <${SENDER}>`,
+      from: `"Auxosys System" <${SYSTEM_SENDER}>`,
       to: ADMIN_EMAIL,
       subject: `New Contact Form Submission: ${subject}`,
       html: `
@@ -48,7 +49,7 @@ exports.sendJobApplicationNotificationToAdmin = async (applicationData) => {
     const { firstName, lastName, email, phone, appliedRole } = applicationData;
     
     const mailOptions = {
-      from: `"Talent Acquisition Auxosys" <${SENDER}>`,
+      from: `"Talent Acquisition Auxosys" <${CAREERS_SENDER}>`,
       to: ADMIN_EMAIL,
       subject: `New Job Application: ${firstName} ${lastName} for ${appliedRole || 'Open Position'}`,
       html: templates.getAdminNotificationTemplate(applicationData),
@@ -69,7 +70,7 @@ exports.sendApplicationReceivedEmailToCandidate = async (candidateData) => {
   try {
     const htmlContent = templates.getApplicationReceivedTemplate(candidateData);
     const mailOptions = {
-      from: `"Talent Acquisition Auxosys" <${SENDER}>`,
+      from: `"Talent Acquisition Auxosys" <${CAREERS_SENDER}>`,
       to: candidateData.CandidateEmail,
       subject: `Application Received – ${candidateData.JobTitle} | Auxosys`,
       html: htmlContent,
@@ -87,7 +88,7 @@ exports.sendApplicationRejectedEmailToCandidate = async (candidateData) => {
   try {
     const htmlContent = templates.getApplicationRejectedTemplate(candidateData);
     const mailOptions = {
-      from: `"Talent Acquisition Auxosys" <${SENDER}>`,
+      from: `"Talent Acquisition Auxosys" <${CAREERS_SENDER}>`,
       to: candidateData.CandidateEmail,
       subject: `Update on Your Application | Auxosys`,
       html: htmlContent,
