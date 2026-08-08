@@ -20,6 +20,9 @@ router.delete("/sitemap-links/:id", seoController.deleteSitemapLink);
 router.post("/sitemap-links/bulk", seoController.bulkSitemapLinksAction);
 router.post("/sitemap-links/validate", seoController.validateSitemapUrl);
 
+// Google Indexing
+router.post("/indexing", seoController.pingGoogleIndexing);
+
 // Redirects
 router.get("/redirects", seoController.getRedirects);
 router.post("/redirects", seoController.createRedirect);

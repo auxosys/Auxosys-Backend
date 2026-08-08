@@ -1,5 +1,6 @@
 const supabase = require("../config/supabaseClient");
 const crypto = require("crypto");
+const googleIndexingService = require("../services/googleIndexingService");
 
 const logAudit = async (req, action, section, old_value, new_value) => {
   try {
@@ -478,5 +479,23 @@ exports.validateSitemapUrl = async (req, res) => {
     }
   } catch (err) {
     res.status(400).json({ success: false, message: "URL is unreachable or malformed" });
+  }
+};
+
+// GOOGLE INDEXING API
+exports.pingGoogleIndexing = async (req, res) => {
+  try {
+    const { url, type } = req.body;
+    if (!url) return res.status(400).json({ success: false, message: "URL is required" });
+    
+    const response = await googleIndexingService.notifyGoogle(url, type || 'URL_UPDATED');
+    if (response.success) {
+      await logAudit(req, "GOOGLE_INDEXING", "Indexing API", null, { url, type });
+      return res.status(200).json({ success: true, data: response.data });
+    } else {
+      return res.status(500).json({ success: false, message: response.message });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
