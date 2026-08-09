@@ -87,7 +87,9 @@ const generateSlug = (text) => {
 // Helper to convert empty strings to null for Supabase
 const sanitizePayload = (body) => {
   const sanitized = {};
+  const ignoredFields = ['id', 'created_at', 'applicantCount', 'applications', 'public_id'];
   for (const [key, value] of Object.entries(body)) {
+    if (ignoredFields.includes(key)) continue;
     sanitized[key] = value === "" ? null : value;
   }
   return sanitized;
