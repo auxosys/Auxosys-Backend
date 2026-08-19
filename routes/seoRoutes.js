@@ -27,6 +27,9 @@ router.post("/indexing", seoController.pingGoogleIndexing);
 // Google Analytics
 router.get("/analytics", analyticsController.getAnalytics);
 
+// Google Search Console & Insights
+router.get("/gsc", analyticsController.getGscData);
+router.get("/insights", analyticsController.getInsights);
 // Redirects
 router.get("/redirects", seoController.getRedirects);
 router.post("/redirects", seoController.createRedirect);

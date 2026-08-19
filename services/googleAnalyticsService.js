@@ -19,7 +19,7 @@ class GoogleAnalyticsService {
     return analyticsDataClient;
   }
 
-  async getTrafficOverview(days = 30) {
+  async getTrafficOverview(startDate = '30daysAgo', endDate = 'today') {
     try {
       const client = await this.getClient();
       
@@ -27,8 +27,8 @@ class GoogleAnalyticsService {
         property: `properties/${this.propertyId}`,
         dateRanges: [
           {
-            startDate: `${days}daysAgo`,
-            endDate: 'today',
+            startDate: startDate,
+            endDate: endDate,
           },
         ],
         dimensions: [
@@ -129,6 +129,45 @@ class GoogleAnalyticsService {
     } catch (error) {
       console.error('Google Analytics API Error:', error);
       return { success: false, message: error.message || "Failed to fetch Analytics data" };
+    }
+  }
+  async getPagePerformance(startDate = '30daysAgo', endDate = 'today') {
+    try {
+      const client = await this.getClient();
+      
+      const [response] = await client.runReport({
+        property: `properties/${this.propertyId}`,
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [{ name: 'pagePath' }],
+        metrics: [
+          { name: 'activeUsers' },
+          { name: 'screenPageViews' },
+          { name: 'bounceRate' },
+          { name: 'averageSessionDuration' }
+        ],
+        orderBys: [
+          { metric: { metricName: 'activeUsers' }, desc: true }
+        ],
+        limit: 50 // Top 50 pages
+      });
+
+      const pages = [];
+      if (response.rows && response.rows.length > 0) {
+        response.rows.forEach(row => {
+          pages.push({
+            pagePath: row.dimensionValues[0].value,
+            activeUsers: parseInt(row.metricValues[0].value, 10),
+            pageViews: parseInt(row.metricValues[1].value, 10),
+            bounceRate: parseFloat(row.metricValues[2].value),
+            avgSessionDuration: parseFloat(row.metricValues[3].value)
+          });
+        });
+      }
+
+      return { success: true, data: pages };
+    } catch (error) {
+      console.error('GA API Error (Page Performance):', error);
+      return { success: false, message: error.message };
     }
   }
 }
