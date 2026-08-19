@@ -71,15 +71,28 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage: storage });
 
-app.post("/upload", requirePermission, upload.single("file"), (req, res) => {
-  if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
-
-  res.json({
-    success: true,
-    data: {
-      url: req.file.path, // Cloudinary URL
-      key: req.file.filename // Cloudinary public_id
+app.post("/upload", requirePermission, (req, res) => {
+  const uploadHandler = upload.single("file");
+  uploadHandler(req, res, function (err) {
+    if (err) {
+      console.error("Cloudinary Upload Error:", err);
+      return res.status(500).json({ 
+        success: false, 
+        message: err.message || "Cloudinary upload failed. Check API keys." 
+      });
     }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file uploaded" });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        url: req.file.path, // Cloudinary URL
+        key: req.file.filename // Cloudinary public_id
+      }
+    });
   });
 });
 
