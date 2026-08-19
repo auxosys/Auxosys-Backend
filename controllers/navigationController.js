@@ -92,18 +92,24 @@ exports.deleteNavigationLink = async (req, res) => {
 
 exports.reorderNavigationLinks = async (req, res) => {
   try {
-    const { items } = req.body; // Array of { id, order_index, parent_id }
+    const { items } = req.body; // Array of { id, order_index, parent_id? }
     if (!items || !items.length) throw new Error("No items provided");
 
-    // Supabase JS doesn't have bulk upsert with different fields easily without upsert array
-    // Let's use the standard upsert
-    const { data, error } = await supabase
-      .from("seo_navigation")
-      .upsert(items, { onConflict: 'id' })
-      .select();
+    // Perform individual updates instead of bulk upsert to avoid NOT NULL constraint errors
+    // when partial fields are sent.
+    const promises = items.map(item => {
+      const payload = { order_index: item.order_index };
+      if (item.parent_id !== undefined) payload.parent_id = item.parent_id;
+      return supabase.from("seo_navigation").update(payload).eq("id", item.id);
+    });
 
+    const results = await Promise.all(promises);
+    
+    // Check if any failed
+    const error = results.find(r => r.error)?.error;
     if (error) throw error;
-    res.status(200).json({ success: true, data });
+
+    res.status(200).json({ success: true, message: "Reordered successfully" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
