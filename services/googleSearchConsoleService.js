@@ -48,6 +48,16 @@ class GoogleSearchConsoleService {
 
   async getSearchPerformance(startDateStr, endDateStr) {
     try {
+      if (!this.isConfigured) {
+        return {
+          success: true,
+          data: {
+            chartData: [],
+            summary: { clicks: 0, impressions: 0, ctr: '0%', avgPosition: '0', score: 0, scoreFactors: { ctrPoints: 0, positionPoints: 0 } }
+          }
+        };
+      }
+      
       const searchconsole = await this.getClient();
       const startDate = startDateStr || this.getFormattedDate(30);
       const endDate = endDateStr || this.getFormattedDate(0);
@@ -118,6 +128,10 @@ class GoogleSearchConsoleService {
 
   async getPagePerformance(startDateStr, endDateStr) {
     try {
+      if (!this.isConfigured) {
+        return { success: true, data: [] };
+      }
+      
       const searchconsole = await this.getClient();
       const startDate = startDateStr || this.getFormattedDate(30);
       const endDate = endDateStr || this.getFormattedDate(0);

@@ -21,6 +21,16 @@ class GoogleAnalyticsService {
 
   async getTrafficOverview(startDate = '30daysAgo', endDate = 'today') {
     try {
+      if (!this.isConfigured) {
+        return {
+          success: true,
+          data: {
+            chartData: [],
+            summary: { uniqueVisitors: 0, totalPageviews: 0, bounceRate: '0%', avgSession: '0m 0s' }
+          }
+        };
+      }
+      
       const client = await this.getClient();
       
       const [response] = await client.runReport({
@@ -133,6 +143,10 @@ class GoogleAnalyticsService {
   }
   async getPagePerformance(startDate = '30daysAgo', endDate = 'today') {
     try {
+      if (!this.isConfigured) {
+        return { success: true, data: [] };
+      }
+      
       const client = await this.getClient();
       
       const [response] = await client.runReport({
