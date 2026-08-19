@@ -21,8 +21,8 @@ const logAudit = async (req, action, section, old_value, new_value) => {
 // ---------------------------------------------------------
 exports.getSettings = async (req, res) => {
   try {
-    const { data, error } = await supabase.from("seo_settings").select("*").single();
-    if (error && error.code !== "PGRST116") throw error;
+    const { data, error } = await supabase.from("seo_settings").select("*").limit(1).maybeSingle();
+    if (error) throw error;
     res.status(200).json({ success: true, data: data || {} });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -31,24 +31,22 @@ exports.getSettings = async (req, res) => {
 
 exports.updateSettings = async (req, res) => {
   try {
-    const { data: oldData } = await supabase.from("seo_settings").select("*").single();
+    const { data: existing } = await supabase.from("seo_settings").select("id").limit(1).maybeSingle();
     
-    // Always upsert since there is only one settings row typically.
-    // If table is empty, we don't have an ID. We assume the client sends the ID if it exists.
     const payload = { ...req.body, updated_at: new Date() };
-    let query = supabase.from("seo_settings");
+    delete payload.id; // ensure we don't try to update the ID
     
     let result;
-    if (payload.id) {
-      result = await query.update(payload).eq("id", payload.id).select().single();
+    if (existing && existing.id) {
+      result = await supabase.from("seo_settings").update(payload).eq("id", existing.id).select().single();
     } else {
-      // Just insert if no ID (first time)
-      result = await query.insert([payload]).select().single();
+      result = await supabase.from("seo_settings").insert([payload]).select().single();
     }
     
     if (result.error) throw result.error;
     
-    await logAudit(req, "UPDATE", "Global Settings", oldData, result.data);
+    // logAudit assumes oldData, let's just pass null for oldData if we didn't fetch it
+    await logAudit(req, "UPDATE", "Global Settings", null, result.data);
     res.status(200).json({ success: true, data: result.data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
