@@ -42,6 +42,7 @@ exports.getNavigationSchema = async (req, res) => {
         "@type": "SiteNavigationElement",
         "position": index + 1,
         "name": item.title || item.label || "Link",
+        "description": item.description || null,
         "url": fullUrl
       };
     });
