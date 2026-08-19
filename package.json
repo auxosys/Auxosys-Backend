@@ -12,6 +12,8 @@
   "dependencies": {
     "@google-analytics/data": "^7.0.0",
     "@supabase/supabase-js": "^2.110.0",
+    "axios": "^1.19.0",
+    "cheerio": "^1.2.0",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -23,7 +25,6 @@
     "multer-storage-cloudinary": "^4.0.0",
     "node-cache": "^5.1.2",
     "nodemailer": "^9.0.3",
-    "puppeteer": "^25.5.0",
     "qrcode": "^1.5.4",
     "sharp": "^0.35.3",
     "uuid": "^14.0.1"
