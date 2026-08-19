@@ -51,10 +51,8 @@ class GoogleSearchConsoleService {
       if (!this.isConfigured) {
         return {
           success: true,
-          data: {
-            chartData: [],
-            summary: { clicks: 0, impressions: 0, ctr: '0%', avgPosition: '0', score: 0, scoreFactors: { ctrPoints: 0, positionPoints: 0 } }
-          }
+          status: 'disconnected',
+          data: null
         };
       }
       
@@ -98,6 +96,7 @@ class GoogleSearchConsoleService {
 
         return {
           success: true,
+          status: 'connected',
           data: {
             chartData,
             summary: {
@@ -114,21 +113,17 @@ class GoogleSearchConsoleService {
 
       return {
         success: true,
-        data: {
-          chartData: [],
-          summary: { clicks: 0, impressions: 0, ctr: '0%', avgPosition: '0', score: 0, scoreFactors: { ctrPoints: 0, positionPoints: 0 } }
-        }
+        status: 'insufficient_data',
+        data: null
       };
 
     } catch (error) {
       console.error('GSC API Error:', error);
-      // Fallback to empty data instead of returning 500
+      // Fallback to error status instead of returning 500
       return {
         success: true,
-        data: {
-          chartData: [],
-          summary: { clicks: 0, impressions: 0, ctr: '0%', avgPosition: '0', score: 0, scoreFactors: { ctrPoints: 0, positionPoints: 0 } }
-        }
+        status: 'error',
+        data: null
       };
     }
   }
@@ -136,7 +131,7 @@ class GoogleSearchConsoleService {
   async getPagePerformance(startDateStr, endDateStr) {
     try {
       if (!this.isConfigured) {
-        return { success: true, data: [] };
+        return { success: true, status: 'disconnected', data: null };
       }
       
       const searchconsole = await this.getClient();
@@ -153,10 +148,10 @@ class GoogleSearchConsoleService {
         },
       });
 
-      return { success: true, data: response.data.rows || [] };
+      return { success: true, status: response.data.rows && response.data.rows.length > 0 ? 'connected' : 'insufficient_data', data: response.data.rows || [] };
     } catch (error) {
       console.error('GSC Page API Error:', error);
-      return { success: true, data: [] };
+      return { success: true, status: 'error', data: null };
     }
   }
 }

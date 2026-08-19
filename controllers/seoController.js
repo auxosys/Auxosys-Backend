@@ -499,3 +499,16 @@ exports.pingGoogleIndexing = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// ---------------------------------------------------------
+// OVERVIEW SCORES
+// ---------------------------------------------------------
+const seoScoringService = require("../services/seoScoringService");
+exports.getSeoOverview = async (req, res) => {
+  try {
+    const scores = await seoScoringService.calculateScores();
+    res.status(200).json({ success: true, data: scores });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

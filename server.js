@@ -34,6 +34,8 @@ app.use(cors({
       "https://www.auxosys.com", 
       "https://admin.auxosys.com", 
       "https://verify.auxosys.com",
+      "http://localhost:3000",
+      "http://localhost:3001",
       "http://localhost:3002",
       "https://auxosys.com",
       "https://www.auxosys.com",

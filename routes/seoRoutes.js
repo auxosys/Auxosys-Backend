@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const seoController = require("../controllers/seoController");
 const analyticsController = require("../controllers/analyticsController");
+const navigationController = require("../controllers/navigationController");
+const crawlerController = require("../controllers/crawlerController");
 const multer = require("multer");
 
 const upload = multer({ dest: "uploads/" });
@@ -36,6 +38,18 @@ router.post("/redirects", seoController.createRedirect);
 router.patch("/redirects/:id", seoController.updateRedirect);
 router.delete("/redirects/:id", seoController.deleteRedirect);
 
+// Navigation
+router.get("/navigation", navigationController.getNavigationLinks);
+router.get("/navigation/schema", navigationController.getNavigationSchema);
+router.post("/navigation", navigationController.upsertNavigationLink);
+router.post("/navigation/reorder", navigationController.reorderNavigationLinks);
+router.delete("/navigation/:id", navigationController.deleteNavigationLink);
+
+// Crawler & Issues
+router.post("/crawl", crawlerController.triggerCrawl);
+router.get("/crawl/history", crawlerController.getCrawlHistory);
+router.get("/issues", crawlerController.getSeoIssues);
+
 // Page Level SEO
 router.get("/pages", seoController.getPages);
 router.get("/pages/:id", seoController.getPageById);
@@ -53,6 +67,9 @@ router.get("/logs", seoController.getAuditLogs);
 
 // Image Upload (generic for OG, Favicon, Logo)
 router.post("/upload", upload.single("image"), seoController.uploadImage);
+
+// Overview Scores
+router.get("/overview", seoController.getSeoOverview);
 
 // Legacy fallback (for older frontend compatibility if needed temporarily)
 router.get("/", seoController.getSettings);

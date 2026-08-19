@@ -24,10 +24,8 @@ class GoogleAnalyticsService {
       if (!this.isConfigured) {
         return {
           success: true,
-          data: {
-            chartData: [],
-            summary: { uniqueVisitors: 0, totalPageviews: 0, bounceRate: '0%', avgSession: '0m 0s' }
-          }
+          status: 'disconnected',
+          data: null
         };
       }
       
@@ -110,6 +108,7 @@ class GoogleAnalyticsService {
 
         return {
           success: true,
+          status: 'connected',
           data: {
             chartData,
             summary: {
@@ -125,33 +124,24 @@ class GoogleAnalyticsService {
       // If no data
       return {
         success: true,
-        data: {
-          chartData: [],
-          summary: {
-            uniqueVisitors: 0,
-            totalPageviews: 0,
-            bounceRate: '0%',
-            avgSession: '0m 0s'
-          }
-        }
+        status: 'insufficient_data',
+        data: null
       };
 
     } catch (error) {
       console.error('Google Analytics API Error:', error);
-      // Return empty data instead of failing so the frontend doesn't show a 500 error
+      // Return explicit error status so the frontend doesn't show a 500 error
       return {
         success: true,
-        data: {
-          chartData: [],
-          summary: { uniqueVisitors: 0, totalPageviews: 0, bounceRate: '0%', avgSession: '0m 0s' }
-        }
+        status: 'error',
+        data: null
       };
     }
   }
   async getPagePerformance(startDate = '30daysAgo', endDate = 'today') {
     try {
       if (!this.isConfigured) {
-        return { success: true, data: [] };
+        return { success: true, status: 'disconnected', data: null };
       }
       
       const client = await this.getClient();
@@ -185,10 +175,10 @@ class GoogleAnalyticsService {
         });
       }
 
-      return { success: true, data: pages };
+      return { success: true, status: pages.length > 0 ? 'connected' : 'insufficient_data', data: pages };
     } catch (error) {
       console.error('GA API Error (Page Performance):', error);
-      return { success: true, data: [] };
+      return { success: true, status: 'error', data: null };
     }
   }
 }
