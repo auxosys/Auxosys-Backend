@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;background:#fff;}
+  .page{width:780px;background:#fff;padding:60px 58px;margin:0 auto;
+    font-family:Georgia,"Times New Roman",serif;color:#232a33;line-height:1.55;font-size:13.5px;}
+  .letterhead{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1f4b6e;padding-bottom:14px;margin-bottom:22px;}
+  .letterhead .co{font-family:-apple-system,sans-serif;}
+  .letterhead .co b{font-size:19px;color:#1f4b6e;letter-spacing:0.4px;}
+  .letterhead .co div{font-size:10.5px;color:#6b7480;margin-top:2px;max-width:260px;}
+  .letterhead .doc-tag{font-family:-apple-system,sans-serif;text-align:right;font-size:10px;color:#9aa1ab;letter-spacing:.12em;text-transform:uppercase;}
+  .letterhead .doc-tag b{display:block;font-size:14px;color:#1c2430;letter-spacing:0;margin-top:3px;}
+  .p-date{font-size:12.5px;color:#5a6472;margin-bottom:16px;font-family:-apple-system,sans-serif;}
+  .p-to{margin-bottom:16px;}
+  .p-to b{font-size:15px;}
+  .p-to div{font-size:12.5px;color:#5a6472;}
+  h3.pv{font-size:14.5px;color:#1f4b6e;border-bottom:1px solid #dde2e8;padding-bottom:5px;margin:22px 0 10px;font-family:-apple-system,sans-serif; page-break-after: avoid;}
+  ul.pv{margin:6px 0 6px 0;padding-left:20px;}
+  ul.pv li{margin-bottom:6px;}
+  .sign-block{margin-top:26px;font-size:13px; page-break-inside: avoid;}
+  .sign-line{border-bottom:1px solid #232a33;width:220px;margin:34px 0 6px;}
+  .page-break{page-break-before:always;}
+  .footer-strip{margin-top:30px;padding-top:10px;border-top:1px solid #dde2e8;font-size:9.5px;color:#9aa1ab;font-family:-apple-system,sans-serif; page-break-inside: avoid;}
+  .accept-box{border:1px solid #dde2e8;border-radius:8px;padding:14px 16px;margin-top:18px;background:#fbfbfc; page-break-inside: avoid;}
+  .accept-box .line{border-bottom:1px solid #c8ccd2;height:22px;margin-top:14px;}
+  .hint{font-size:10.5px;color:#8b93a0;}
+  
+  .clause-content {
+    text-align: justify;
+  }
+  .clause-content p { margin: 0 0 10px 0; }
+  .clause-content ul { margin: 8px 0 12px 0; padding-left: 20px; }
+  .clause-content li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="letterhead">
+      <div class="co">
+        <b>{{company.company_name}}</b>
+        <div>{{company.legal_company_name}}</div>
+        <div>{{company.registered_address}}</div>
+        <div>{{company.website}} {{#if company.email}}&middot; {{company.email}}{{/if}}</div>
+      </div>
+      <div class="doc-tag">Offer Letter<b>{{letterTitle}}</b></div>
+    </div>
+    
+    <div class="p-date">{{offerDate}}</div>
+    <div class="p-to">
+      <b>{{candidate.name}}</b>
+      <div>
+        {{#if candidate.address}}{{candidate.address}}<br>{{/if}}
+        {{#if candidate.city}}{{candidate.city}}, {{candidate.state}} {{candidate.pin}}{{/if}}
+      </div>
+    </div>
+    
+    <p>Dear {{candidate.name}},</p>
+    <p style="color:#1f4b6e;font-weight:700;font-size:15px;margin:14px 0 6px;">Congratulations!</p>
+    <p>We are delighted to extend to you an offer to join <b>{{company.legal_company_name}}</b>, a company committed to innovation, integrity, and excellence. Your skills and enthusiasm made a strong impression on our team, and this letter sets out the terms of your engagement &mdash; this document constitutes a binding agreement upon your acceptance.</p>
+
+    <div class="clauses-container">
+      {{#each clauses}}
+        <h3 class="pv">{{this.title}}</h3>
+        <div class="clause-content">
+          {{{this.content}}}
+        </div>
+      {{/each}}
+    </div>
+
+    <div class="accept-box">
+      <b>Candidate Acceptance</b>
+      <p style="margin:8px 0 0;">I accept the terms and conditions described in this offer letter.</p>
+      <div class="line"></div>
+      <div class="hint" style="margin-top:2px;">Candidate Signature &nbsp;&nbsp;&nbsp;&nbsp; Date</div>
+    </div>
+    
+    <div class="sign-block" style="position:relative;">
+      Sincerely,
+      {{#if signatory.signature_url}}
+        <img src="{{signatory.signature_url}}" alt="Signature" style="height:52px;display:block;margin:10px 0 2px;" />
+      {{else}}
+        <div class="sign-line"></div>
+      {{/if}}
+      <b>{{signatory.name}}</b><br>
+      {{signatory.designation}}<br>
+      {{company.company_name}}
+    </div>
+    
+    <div class="footer-strip">
+      {{company.legal_company_name}}<br>
+      {{company.registered_address}} &middot; {{company.website}} {{#if company.email}}&middot; {{company.email}}{{/if}}
+    </div>
+  </div>
+</body>
+</html>

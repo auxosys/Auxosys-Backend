@@ -23,6 +23,7 @@ const cookieRoutes = require("./routes/cookieRoutes");
 const certificateRoutes = require("./routes/certificates");
 const signatureRoutes = require("./routes/signatures");
 const verifyRoutes = require("./routes/verify");
+const offerLetterRoutes = require("./routes/offerLetterRoutes");
 const { requirePermission } = require("./middleware/rbacMiddleware");
 
 const app = express();
@@ -131,6 +132,7 @@ app.use("/cookies", cookieRoutes);
 app.use("/api/certificates/signatures", requirePermission, signatureRoutes);
 app.use("/api/certificates", certificateRoutes);
 app.use("/api/verify", verifyRoutes);
+app.use("/api/offer-letters", requirePermission, offerLetterRoutes);
 
 // Mock notifications
 app.get("/notifications/count", (req, res) => res.json({ count: 0 }));

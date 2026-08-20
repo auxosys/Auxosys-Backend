@@ -27,7 +27,8 @@ class CrawlerService {
     try {
       // 1. Get all URLs to crawl (we'll start by fetching all published pages from seo_pages)
       const { data: pages } = await supabase.from("seo_pages").select("page_slug").eq("status", "Published");
-      const urlsToCrawl = pages ? pages.map(p => this.normalizeUrl(p.page_slug)) : [this.baseUrl];
+      const rawUrls = pages ? pages.map(p => this.normalizeUrl(p.page_slug)) : [this.baseUrl];
+      const urlsToCrawl = [...new Set(rawUrls)];
 
       const results = [];
       let healthyCount = 0;
@@ -102,7 +103,7 @@ class CrawlerService {
 
     try {
       const response = await axios.get(url, {
-        timeout: 10000,
+        timeout: 30000,
         validateStatus: () => true // Resolve all HTTP statuses
       });
       result.status = response.status;
@@ -195,6 +196,8 @@ class CrawlerService {
       result.critical_issues.push(`Failed to crawl: ${err.message}`);
     }
     
+    result.warning_issues = [...new Set(result.warning_issues)];
+    result.critical_issues = [...new Set(result.critical_issues)];
     return result;
   }
 
