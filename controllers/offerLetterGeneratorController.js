@@ -265,7 +265,6 @@ exports.generatePdf = async (req, res) => {
       pdfOptions.displayHeaderFooter = true;
       pdfOptions.footerTemplate = `
         <div style="-webkit-print-color-adjust: exact; width: 100%; height: 80px; position: relative; font-size: 11px; font-family: 'Poppins', Arial, sans-serif;">
-          <div style="position: absolute; bottom: 34px; left: 44px; width: calc(100% - 88px); height: 4px; background: #20B2AA; border-radius: 2px; z-index: -1;"></div>
           <div style="position: absolute; bottom: 12px; right: 44px; color: #101828; font-weight: 600;">
             <span class="pageNumber"></span> / <span class="totalPages"></span>
           </div>
