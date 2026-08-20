@@ -1,97 +1,347 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
+<title>{{letterTitle}}</title>
 <style>
+  :root{
+    --navy:#101828;
+    --teal:#20B2AA;
+    --mint:#D0F2F1;
+    --cyan:#E6FAFA;
+  }
   *{box-sizing:border-box;}
-  body{margin:0;background:#fff;}
-  .page{width:780px;background:#fff;padding:60px 58px;margin:0 auto;
-    font-family:Georgia,"Times New Roman",serif;color:#232a33;line-height:1.55;font-size:13.5px;}
-  .letterhead{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1f4b6e;padding-bottom:14px;margin-bottom:22px;}
-  .letterhead .co{font-family:-apple-system,sans-serif;}
-  .letterhead .co b{font-size:19px;color:#1f4b6e;letter-spacing:0.4px;}
-  .letterhead .co div{font-size:10.5px;color:#6b7480;margin-top:2px;max-width:260px;}
-  .letterhead .doc-tag{font-family:-apple-system,sans-serif;text-align:right;font-size:10px;color:#9aa1ab;letter-spacing:.12em;text-transform:uppercase;}
-  .letterhead .doc-tag b{display:block;font-size:14px;color:#1c2430;letter-spacing:0;margin-top:3px;}
-  .p-date{font-size:12.5px;color:#5a6472;margin-bottom:16px;font-family:-apple-system,sans-serif;}
-  .p-to{margin-bottom:16px;}
-  .p-to b{font-size:15px;}
-  .p-to div{font-size:12.5px;color:#5a6472;}
-  h3.pv{font-size:14.5px;color:#1f4b6e;border-bottom:1px solid #dde2e8;padding-bottom:5px;margin:22px 0 10px;font-family:-apple-system,sans-serif; page-break-after: avoid;}
-  ul.pv{margin:6px 0 6px 0;padding-left:20px;}
-  ul.pv li{margin-bottom:6px;}
-  .sign-block{margin-top:26px;font-size:13px; page-break-inside: avoid;}
-  .sign-line{border-bottom:1px solid #232a33;width:220px;margin:34px 0 6px;}
-  .page-break{page-break-before:always;}
-  .footer-strip{margin-top:30px;padding-top:10px;border-top:1px solid #dde2e8;font-size:9.5px;color:#9aa1ab;font-family:-apple-system,sans-serif; page-break-inside: avoid;}
-  .accept-box{border:1px solid #dde2e8;border-radius:8px;padding:14px 16px;margin-top:18px;background:#fbfbfc; page-break-inside: avoid;}
-  .accept-box .line{border-bottom:1px solid #c8ccd2;height:22px;margin-top:14px;}
-  .hint{font-size:10.5px;color:#8b93a0;}
+  @page { size: A4; margin: 80px 0; }
+  @page:first { margin: 0; }
+  @page last-page-style { margin: 0; }
+  body{
+    margin:0;
+    padding:0;
+    font-family:'Poppins','Segoe UI',Arial,sans-serif;
+  }
+  .poster{
+    position:relative;
+    width: 100%;
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* ---------- corner swirl decorations (purely decorative, behind content) ---------- */
+  .corner{
+    position:absolute;
+    width:300px;
+    height:300px;
+    overflow:hidden;
+    pointer-events:none;
+    z-index:0;
+  }
+  .tl{ top:-2px; left:-2px; }
+  .br{ bottom:-2px; right:-2px; transform:rotate(180deg); }
+
+  .corner .disc{
+    position:absolute;
+    border-radius:50%;
+  }
+  .corner .d1{
+    width:460px; height:460px;
+    top:-230px; left:-230px;
+    background:radial-gradient(circle at 65% 35%, #223349 0%, var(--navy) 60%, #0b1119 100%);
+  }
+  .corner .d2{
+    width:375px; height:375px;
+    top:-150px; left:-188px;
+    background:linear-gradient(135deg, var(--teal) 0%, #2fd0c7 100%);
+  }
+  .corner .d3{
+    width:320px; height:320px;
+    top:-132px; left:-162px;
+    background:radial-gradient(circle at 60% 30%, #26374f 0%, var(--navy) 65%, #0b1119 100%);
+  }
+
+  /* ---------- header ---------- */
+  .header{
+    position:relative;
+    z-index:2;
+    padding:44px 44px 26px 44px;
+    min-height:260px;
+    page-break-after: avoid;
+  }
+  .logo{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-left:-44px;
+  }
+  .logo img {
+    height: 56px;
+    object-fit: contain;
+  }
+  .logo svg{width:56px;height:56px;flex:none;}
+  .logo .name{
+    color:#fff;
+    font-weight:700;
+    font-size:19px;
+    line-height:1.2;
+  }
+  .title{
+    font-size: {{titleSize}}px;
+    font-weight:800;
+    color:var(--navy);
+    letter-spacing:0.3px;
+    margin:-36px 0 28px 0;
+    text-align:center;
+  }
+  .contact{
+    position:absolute;
+    right:44px;
+    top:44px;
+    text-align:right;
+    color:var(--navy);
+    font-size: {{contactSize}}px;
+    line-height:1.6;
+  }
+  .contact .legal-name {
+    font-weight: 800;
+    font-size: 16px;
+    margin-bottom: 2px;
+  }
+
+  /* ---------- body ---------- */
+  .content{
+    position:relative;
+    z-index:2;
+    padding:10px 44px 0 44px;
+    flex:1;
+    color:var(--navy);
+  }
+  .row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+  }
+  .to-label{font-weight:700; font-size: {{headingSize}}px;}
+  .date{font-weight:700; font-size: {{headingSize}}px; white-space:nowrap;}
+  .addr{font-size: {{bodySize}}px; line-height:1.6; margin-top:2px;}
   
-  .clause-content {
+  .salutation{
+    font-weight:700;
+    font-size: {{headingSize}}px;
+    margin-top:26px;
+    margin-bottom:12px;
+  }
+  .para{
+    font-size: {{bodySize}}px;
+    line-height:1.65;
+    margin-top:18px;
     text-align: justify;
   }
-  .clause-content p { margin: 0 0 10px 0; }
-  .clause-content ul { margin: 8px 0 12px 0; padding-left: 20px; }
-  .clause-content li { margin-bottom: 6px; }
+  .para p {
+    margin: 0 0 10px 0;
+  }
+  .para p:last-child {
+    margin: 0;
+  }
+  
+  .section-heading { font-size: {{headingSize}}px; font-weight: 700; color: var(--navy); margin-bottom: 12px; margin-top: 24px; }
+  
+  .details-list ul { margin:10px 0 0 0; padding-left:20px; font-size: {{listSize}}px; line-height:1.6; }
+  .details-list li p { margin: 0; }
+  .details-list p { margin: 0 0 4px 0; }
+  .details-list li { margin-bottom:4px; }
+  .offer-details{ font-size: {{listSize}}px; margin-top:22px; font-weight:600; }
+
+  .clause-block { margin: 18px 0; }
+  .clause-block h2 { font-size: {{headingSize}}px; font-weight: 700; color: var(--navy); margin-bottom: 6px; page-break-after: avoid; }
+  .clause-block .clause-body p:has(b), .clause-block .clause-body p:has(strong) { page-break-after: avoid; }
+  .clause-block .clause-body p { margin-bottom: 8px; font-size: {{bodySize}}px; line-height: 1.6; color: #333; }
+  .clause-block .clause-body ul { margin-top: 4px; margin-bottom: 8px; padding-left: 20px; font-size: {{bodySize}}px; line-height: 1.6; }
+  .clause-block .clause-body em { color: #B45309; }
+  
+  .clause-block table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: {{bodySize}}px; }
+  .clause-block table, .clause-block th, .clause-block td { border: 1px solid #CBD5E1; }
+  .clause-block th, .clause-block td { padding: 8px 12px; text-align: left; }
+  .clause-block th { background-color: #F8FAFC; font-weight: 600; color: #101828; }
+
+  /* ---------- footer ---------- */
+  .footer-space{
+    height:210px;
+    position:relative;
+    z-index:2;
+    page-break-inside: avoid;
+    margin-top: 40px;
+  }
+  .sign-area{
+    position:absolute;
+    bottom:60px;
+    left:44px;
+    font-size: {{contactSize}}px;
+    line-height:1.6;
+  }
+  .sign-area .sincerely{font-size:15px;}
+  .sign-area svg{display:block; width:150px; height:{{signatureSize}}px; margin:8px 0 6px -4px;}
+  .sign-area img{max-height:{{signatureSize}}px; margin:8px 0 6px -4px; display:block;}
+  .signee .name{font-weight:700; font-size:16px;}
+  .signee .role{font-size:14px; margin-top:2px;}
+
+  .footer-rule{
+    position:absolute;
+    bottom:34px;
+    left:44px;
+    width:calc(100% - 88px);
+    height:4px;
+    background:var(--teal);
+    border-radius:2px;
+    z-index:2;
+  }
+  
+  .candidate-ack { margin-top: 40px; page-break-inside: avoid; }
+  .candidate-ack h2 { font-size: {{headingSize}}px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+  .candidate-ack p { font-size: {{bodySize}}px; color: #333; margin-bottom: 24px;}
+  .candidate-ack .ack-field { display: flex; align-items: flex-end; margin-bottom: 16px; width: 400px; }
+  .candidate-ack .field-label { font-size: {{bodySize}}px; color: var(--navy); width: 160px; font-weight: 600; }
+  .candidate-ack .field-line-inline { flex: 1; border-bottom: 1px solid #94A3B8; margin-left: 12px; height: 20px; }
+
+  .watermark { position: fixed; top: 50%; left: 50%; margin-top: -340px; margin-left: -340px; width: 680px; height: 680px; z-index: 0; pointer-events: none; opacity: 0.15; }
 </style>
 </head>
 <body>
-  <div class="page">
-    <div class="letterhead">
-      <div class="co">
-        <b>{{company.company_name}}</b>
-        <div>{{company.legal_company_name}}</div>
-        <div>{{company.registered_address}}</div>
-        <div>{{company.website}} {{#if company.email}}&middot; {{company.email}}{{/if}}</div>
-      </div>
-      <div class="doc-tag">Offer Letter<b>{{letterTitle}}</b></div>
-    </div>
-    
-    <div class="p-date">{{offerDate}}</div>
-    <div class="p-to">
-      <b>{{candidate.name}}</b>
-      <div>
-        {{#if candidate.address}}{{candidate.address}}<br>{{/if}}
-        {{#if candidate.city}}{{candidate.city}}, {{candidate.state}} {{candidate.pin}}{{/if}}
-      </div>
-    </div>
-    
-    <p>Dear {{candidate.name}},</p>
-    <p style="color:#1f4b6e;font-weight:700;font-size:15px;margin:14px 0 6px;">Congratulations!</p>
-    <p>We are delighted to extend to you an offer to join <b>{{company.legal_company_name}}</b>, a company committed to innovation, integrity, and excellence. Your skills and enthusiasm made a strong impression on our team, and this letter sets out the terms of your engagement &mdash; this document constitutes a binding agreement upon your acceptance.</p>
 
-    <div class="clauses-container">
-      {{#each clauses}}
-        <h3 class="pv">{{this.title}}</h3>
-        <div class="clause-content">
-          {{{this.content}}}
+  <div class="poster">
+
+    <div class="corner tl">
+      <div class="disc d1"></div>
+      <div class="disc d2"></div>
+      <div class="disc d3"></div>
+    </div>
+
+    <div class="header">
+      <div class="logo">
+        {{#if company.logo_url}}
+          <img src="{{company.logo_url}}" alt="Logo" />
+        {{else}}
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <g transform="translate(100,103)">
+              <path d="M -56 -7 A 58 58 0 1 1 43 45" fill="none" stroke="#F8FAFC" stroke-width="1.2" opacity="0.5"/>
+              <line x1="-6" y1="-42" x2="36" y2="16" stroke="#F8FAFC" stroke-width="5.2" stroke-linecap="round"/>
+              <line x1="36" y1="16" x2="-33" y2="29" stroke="#F8FAFC" stroke-width="5.2" stroke-linecap="round"/>
+              <line x1="-33" y1="29" x2="-6" y2="-42" stroke="#F8FAFC" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+              <circle cx="-6" cy="-42" r="10" fill="#F8FAFC"/>
+              <circle cx="36" cy="16" r="14.5" fill="#F8FAFC"/>
+              <circle cx="-33" cy="29" r="7.3" fill="#F8FAFC"/>
+              <circle cx="43" cy="45" r="3.6" fill="#F8FAFC"/>
+            </g>
+          </svg>
+          <div class="name">{{company.company_name}}</div>
+        {{/if}}
+      </div>
+
+      <div class="contact">
+        <div class="legal-name">{{company.legal_company_name}}</div>
+        {{company.registered_address}}<br>
+        {{company.website}}, {{company.email}}
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="title">{{letterTitle}}</div>
+      
+      <div class="row">
+        <div>
+          <div class="to-label">To:</div>
+          <div class="addr">
+            {{candidate.name}}<br>
+            {{#if candidate.address}}{{candidate.address}}<br>{{/if}}
+            {{#if candidate.city}}{{candidate.city}}, {{candidate.state}} {{candidate.pin}}{{/if}}
+          </div>
         </div>
+        <div class="date">{{offerDate}}</div>
+      </div>
+
+      <div class="salutation">Dear {{candidate.name}},</div>
+
+      <div class="para">
+        {{{offerIntroduction}}}
+      </div>
+
+      <div class="offer-details">Offer Details</div>
+      <div class="details-list">
+        {{{offerDetails}}}
+      </div>
+
+      <div class="para">
+        {{{closingStatement}}}
+      </div>
+
+      <div style="page-break-before: always; height: 40px;"></div>
+
+      {{#each clauses}}
+      <div class="clause-block">
+        <h2>{{this.title}}</h2>
+        <div class="clause-body">{{{this.content}}}</div>
+      </div>
       {{/each}}
+
     </div>
 
-    <div class="accept-box">
-      <b>Candidate Acceptance</b>
-      <p style="margin:8px 0 0;">I accept the terms and conditions described in this offer letter.</p>
-      <div class="line"></div>
-      <div class="hint" style="margin-top:2px;">Candidate Signature &nbsp;&nbsp;&nbsp;&nbsp; Date</div>
-    </div>
-    
-    <div class="sign-block" style="position:relative;">
-      Sincerely,
-      {{#if signatory.signature_url}}
-        <img src="{{signatory.signature_url}}" alt="Signature" style="height:52px;display:block;margin:10px 0 2px;" />
-      {{else}}
-        <div class="sign-line"></div>
-      {{/if}}
-      <b>{{signatory.name}}</b><br>
-      {{signatory.designation}}<br>
-      {{company.company_name}}
-    </div>
-    
-    <div class="footer-strip">
-      {{company.legal_company_name}}<br>
-      {{company.registered_address}} &middot; {{company.website}} {{#if company.email}}&middot; {{company.email}}{{/if}}
+    <div class="last-page" style="page: last-page-style; page-break-before: always; page-break-inside: avoid; break-inside: avoid; position: relative; height: 296.5mm; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0;">
+      <div class="content" style="padding-top: 80px; flex: none;">
+        <div class="candidate-ack" style="margin-top: 0;">
+          <h2>Candidate Acknowledgement</h2>
+          {{{candidateAcknowledgement}}}
+          <div class="ack-field">
+            <div class="field-label">Candidate Signature</div>
+            <div class="field-line-inline"></div>
+          </div>
+          <div class="ack-field">
+            <div class="field-label">Full Legal Name</div>
+            <div class="field-line-inline"></div>
+          </div>
+          <div class="ack-field">
+            <div class="field-label">Aadhaar Number</div>
+            <div class="field-line-inline"></div>
+          </div>
+          <div class="ack-field">
+            <div class="field-label">PAN Number</div>
+            <div class="field-line-inline"></div>
+          </div>
+          <div class="ack-field">
+            <div class="field-label">Full Address</div>
+            <div class="field-line-inline"></div>
+          </div>
+          <div class="ack-field">
+            <div class="field-label">Date</div>
+            <div class="field-line-inline"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Background Decoration -->
+      <div class="corner br" style="position: absolute; width: 300px; height: 300px; bottom: -2px; right: -2px; overflow: hidden; pointer-events: none; z-index: 3; transform: rotate(180deg);">
+        <div class="disc d1"></div>
+        <div class="disc d2"></div>
+        <div class="disc d3"></div>
+      </div>
+
+      <!-- Signature Block -->
+      <div class="sign-area" style="position: absolute; bottom: 60px; left: 44px; z-index: 2;">
+        <div class="sincerely">Sincerely,</div>
+        {{#if signatory.signature_url}}
+          <img src="{{signatory.signature_url}}" alt="Signature" />
+        {{else}}
+          <svg viewBox="0 0 200 90" fill="none">
+            <path d="M15 55 C 25 20, 40 20, 45 45 C 48 60, 55 40, 65 35 C 78 28, 78 55, 90 45 C 100 38, 105 25, 120 35 C 135 45, 150 30, 165 40"
+                  stroke="#101828" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        {{/if}}
+        <div class="signee">
+          <div class="name">{{signatory.name}}</div>
+          <div class="role">{{signatory.designation}}, {{company.company_name}}</div>
+        </div>
+      </div>
+      
+      <!-- Footer Rule & Mask -->
+      <div style="position: absolute; bottom: 0; right: 0; width: 330px; height: 80px; background: white; z-index: 1;"></div>
+      <div class="footer-rule" style="position: absolute; bottom: 34px; left: 44px; width: 420px; height: 4px; background: var(--teal); border-radius: 2px; z-index: 2;"></div>
     </div>
   </div>
 </body>

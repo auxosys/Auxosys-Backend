@@ -186,22 +186,42 @@ exports.generatePdf = async (req, res) => {
 
     const template = handlebars.compile(templateSource);
     
+    // Pre-process rich text to remove block elements (li, p, div) that contain empty variables
+    const cleanEmptyVariables = (text, data) => {
+      if (!text) return "";
+      const getValue = (path, obj) => path.split('.').reduce((o, i) => (o ? o[i] : undefined), obj);
+      return text.replace(/<(li|p|div)[^>]*>[\s\S]*?<\/\1>/gi, (match) => {
+        const vars = match.match(/\{\{([^}]+)\}\}/g);
+        if (vars) {
+          for (let v of vars) {
+            const varName = v.replace(/[{}]/g, '').trim();
+            const val = getValue(varName, data);
+            if (!val) return "";
+          }
+        }
+        return match;
+      });
+    };
+
     // Pre-compile the rich text fields so they can use handlebars variables like {{job.title}}
     if (offerData.offerIntroduction) {
-      offerData.offerIntroduction = handlebars.compile(offerData.offerIntroduction)(offerData);
+      offerData.offerIntroduction = handlebars.compile(cleanEmptyVariables(offerData.offerIntroduction, offerData))(offerData);
     }
     if (offerData.offerDetails) {
-      offerData.offerDetails = handlebars.compile(offerData.offerDetails)(offerData);
+      offerData.offerDetails = handlebars.compile(cleanEmptyVariables(offerData.offerDetails, offerData))(offerData);
     }
     if (offerData.closingStatement) {
-      offerData.closingStatement = handlebars.compile(offerData.closingStatement)(offerData);
+      offerData.closingStatement = handlebars.compile(cleanEmptyVariables(offerData.closingStatement, offerData))(offerData);
+    }
+    if (offerData.candidateAcknowledgement) {
+      offerData.candidateAcknowledgement = handlebars.compile(cleanEmptyVariables(offerData.candidateAcknowledgement, offerData))(offerData);
     }
     
     // Also compile clauses if present
     if (offerData.clauses && Array.isArray(offerData.clauses)) {
       offerData.clauses = offerData.clauses.map(clause => ({
         ...clause,
-        content: handlebars.compile(clause.content)(offerData)
+        content: handlebars.compile(cleanEmptyVariables(clause.content, offerData))(offerData)
       }));
     }
 
@@ -219,16 +239,42 @@ exports.generatePdf = async (req, res) => {
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
     // Generate PDF
-    const pdfBuffer = await page.pdf({
+    const isDetailed = offerData.templateType === 'detailed_page';
+    
+    
+    const pdfOptions = {
       format: 'A4',
       printBackground: true,
-      margin: {
-        top: '0px',
-        right: '0px',
-        bottom: '0px',
-        left: '0px'
-      }
-    });
+      preferCSSPageSize: true,
+      margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' }
+    };
+
+    // Inject Watermark into Header Template so it repeats on every page
+    pdfOptions.displayHeaderFooter = true;
+    pdfOptions.headerTemplate = `
+      <div style="-webkit-print-color-adjust: exact; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; z-index: -10;">
+        <div style="width: 680px; height: 680px; opacity: 0.15; margin-top: -80px;">
+              <svg width="100%" height="100%" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">      <g transform="translate(100,103)">        <path d="M -56 -7 A 58 58 0 1 1 43 45" fill="none" stroke="#081826" stroke-width="1.2" opacity="0.5"/>        <line x1="-6" y1="-42" x2="36" y2="16" stroke="#081826" stroke-width="5.2" stroke-linecap="round"/>        <line x1="36" y1="16" x2="-33" y2="29" stroke="#081826" stroke-width="5.2" stroke-linecap="round"/>        <line x1="-33" y1="29" x2="-6" y2="-42" stroke="#081826" stroke-width="3" stroke-linecap="round" opacity="0.6"/>        <circle cx="-6" cy="-42" r="10" fill="#081826"/>        <circle cx="36" cy="16" r="14.5" fill="#081826"/>        <circle cx="-33" cy="29" r="7.3" fill="#081826"/>        <circle cx="43" cy="45" r="3.6" fill="#081826"/>      </g>    </svg>
+        </div>
+      </div>
+    `;
+    pdfOptions.footerTemplate = '<span></span>'; // Default empty footer
+
+
+    if (isDetailed) {
+      pdfOptions.displayHeaderFooter = true;
+      pdfOptions.footerTemplate = `
+        <div style="-webkit-print-color-adjust: exact; width: 100%; height: 80px; position: relative; font-size: 11px; font-family: 'Poppins', Arial, sans-serif;">
+          <div style="position: absolute; bottom: 34px; left: 44px; width: calc(100% - 88px); height: 4px; background: #20B2AA; border-radius: 2px;"></div>
+          <div style="position: absolute; bottom: 12px; right: 44px; color: #101828; font-weight: 600;">
+            <span class="pageNumber"></span> / <span class="totalPages"></span>
+          </div>
+        </div>
+      `;
+    }
+
+
+    const pdfBuffer = await page.pdf(pdfOptions);
 
     // Send PDF as download stream
     res.set({
