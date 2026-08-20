@@ -245,7 +245,7 @@ exports.generatePdf = async (req, res) => {
     page = await browser.newPage();
     
     // Set HTML content
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.setContent(html, { waitUntil: 'load', timeout: 10000 });
 
     // Generate PDF
     const isDetailed = offerData.templateType === 'detailed_page';
