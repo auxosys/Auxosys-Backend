@@ -5,6 +5,17 @@ const fs = require("fs");
 const path = require("path");
 const { supabase } = require("../config/supabaseClient"); // Ensure correct path
 
+let globalBrowser = null;
+async function getBrowser() {
+  if (!globalBrowser || !globalBrowser.isConnected()) {
+    globalBrowser = await puppeteer.launch({
+      headless: "new",
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+  }
+  return globalBrowser;
+}
+
 // --- Settings and Clauses Management ---
 
 exports.getCompanySettings = async (req, res) => {
@@ -154,7 +165,7 @@ handlebars.registerHelper('ifEquals', function(arg1, arg2, options) {
 });
 
 exports.generatePdf = async (req, res) => {
-  let browser = null;
+  let page = null;
   try {
     const offerData = req.body;
     // offerData expects: { candidate, job, compensation, benefits, clauses, company, signatory, templateType }
@@ -229,12 +240,9 @@ exports.generatePdf = async (req, res) => {
     const html = template(offerData);
 
     // Launch Puppeteer
-    browser = await puppeteer.launch({
-      headless: "new",
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    const browser = await getBrowser();
 
-    const page = await browser.newPage();
+    page = await browser.newPage();
     
     // Set HTML content
     await page.setContent(html, { waitUntil: 'networkidle0' });
@@ -310,8 +318,8 @@ exports.generatePdf = async (req, res) => {
     console.error("PDF Generation Error:", err);
     res.status(500).json({ success: false, message: "Failed to generate PDF", error: err.message });
   } finally {
-    if (browser) {
-      await browser.close();
+    if (page) {
+      await page.close();
     }
   }
 };
