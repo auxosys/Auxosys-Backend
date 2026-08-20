@@ -1,5 +1,6 @@
 const puppeteer = require("puppeteer");
 const handlebars = require("handlebars");
+const { PDFDocument, rgb } = require("pdf-lib");
 const fs = require("fs");
 const path = require("path");
 const { supabase } = require("../config/supabaseClient"); // Ensure correct path
@@ -265,8 +266,7 @@ exports.generatePdf = async (req, res) => {
       pdfOptions.displayHeaderFooter = true;
       pdfOptions.footerTemplate = `
         <div style="-webkit-print-color-adjust: exact; width: 100%; height: 80px; position: relative; font-size: 11px; font-family: 'Poppins', Arial, sans-serif;">
-          <div style="position: absolute; bottom: 34px; left: 44px; width: calc(100% - 88px); height: 4px; background: #20B2AA; border-radius: 2px; z-index: -1;"></div>
-          <div style="position: absolute; bottom: 12px; right: 44px; color: #101828; font-weight: 600;">
+          <div style="position: absolute; bottom: 5px; left: 0; width: 100%; text-align: center; color: #101828; font-weight: 600;">
             <span class="pageNumber"></span> / <span class="totalPages"></span>
           </div>
         </div>
@@ -274,7 +274,28 @@ exports.generatePdf = async (req, res) => {
     }
 
 
-    const pdfBuffer = await page.pdf(pdfOptions);
+    let pdfBuffer = await page.pdf(pdfOptions);
+
+    // After Chrome generates the PDF, we use pdf-lib to manually draw the green line
+    // on all pages EXCEPT the last page, perfectly bypassing all Chrome CSS bugs.
+    if (isDetailed) {
+      const pdfDoc = await PDFDocument.load(pdfBuffer);
+      const pages = pdfDoc.getPages();
+      
+      // Draw on all pages except the last one (pages.length - 1)
+      for (let i = 0; i < pages.length - 1; i++) {
+        const p = pages[i];
+        p.drawRectangle({
+          x: 33, // 44px * 0.75
+          y: 42, // moved up to completely clear the page number
+          width: p.getWidth() - 66, // 100% - 88px
+          height: 1.5, // 2px equivalent, reduced boldness
+          color: rgb(32 / 255, 178 / 255, 170 / 255), // #20B2AA
+        });
+      }
+      
+      pdfBuffer = Buffer.from(await pdfDoc.save());
+    }
 
     // Send PDF as download stream
     res.set({
