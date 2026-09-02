@@ -7,6 +7,7 @@ const MODULE_MAPPING = {
   "/contact": "contact",
   "/subscriptions": "subscriptions",
   "/api/offer-letters": "offer_letters",
+  "/api/clients": "client_management",
 };
 
 const SITE_MANAGEMENT = ["/api/v1/seo", "/seo", "/settings", "/legal", "/access-control"];
