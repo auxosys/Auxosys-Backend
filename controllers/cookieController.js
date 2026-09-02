@@ -127,11 +127,12 @@ exports.updateConfig = async (req, res) => {
     const { theme, position, expiry, status } = req.body;
     
     // We insert a new config version so there is history
+    const version = `v${Date.now()}`;
     const { data, error } = await supabase
       .from("cookie_banner_settings")
       .insert([
         { 
-          version: "v2.0", 
+          version, 
           config: { theme, position, expiry },
           status: status || 'Publish'
         }
