@@ -2,12 +2,14 @@ const supabase = require("../config/supabaseClient");
 const { verifyToken } = require("../utils/jwtHelper");
 
 const MODULE_MAPPING = {
+  "/dashboard": "dashboard",
   "/job": "careers",
   "/news": "newsroom",
   "/contact": "contact",
   "/subscriptions": "subscriptions",
   "/api/offer-letters": "offer_letters",
   "/api/clients": "client_management",
+  "/api/outreach": "outreach",
 };
 
 const SITE_MANAGEMENT = ["/api/v1/seo", "/seo", "/settings", "/legal", "/access-control"];
@@ -63,6 +65,28 @@ exports.requirePermission = async (req, res, next) => {
         const hasLegacyString = permissions.some(p => typeof p === 'string' && p === moduleName);
         if (hasLegacyString) {
           modulePermission = { module: moduleName, access: "Read & Write" };
+        }
+      }
+
+      // Check user_sender_permissions or direct compose send for outreach module
+      if (moduleName === "outreach") {
+        if (path === "/send" || path.startsWith("/send")) {
+          modulePermission = { module: "outreach", access: "Read & Write" };
+        } else {
+          const isUuid = (str) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(str));
+          const userIdentifiers = [user.id, user._id, user.user_metadata?.id].filter(Boolean).filter(isUuid);
+          
+          if (userIdentifiers.length > 0) {
+            const { data: senderPerms } = await supabase
+              .from("user_sender_permissions")
+              .select("id")
+              .in("user_id", userIdentifiers)
+              .limit(1);
+
+            if (senderPerms && senderPerms.length > 0) {
+              modulePermission = { module: "outreach", access: "Read & Write" };
+            }
+          }
         }
       }
 

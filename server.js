@@ -136,6 +136,20 @@ app.use("/api/verify", verifyRoutes);
 app.use("/api/offer-letters", requirePermission, offerLetterRoutes);
 app.use("/api/clients", requirePermission, clientRoutes);
 
+// Mailbox & Outreach Routes
+const makeOutreachRouter = require("./routes/outreach");
+const makeTrackingRouter = require("./routes/tracking");
+const makeWebhookRouter = require("./routes/webhookRoutes");
+const mailboxRoutes = require("./routes/mailboxes");
+const messageRoutes = require("./routes/messages");
+const supabaseClient = require("./config/supabaseClient");
+
+app.use("/api/mailboxes", mailboxRoutes);
+app.use("/api/mailboxes", messageRoutes);
+app.use("/api/outreach", makeOutreachRouter(supabaseClient));
+app.use("/api/track", makeTrackingRouter(supabaseClient));
+app.use("/api/webhooks", makeWebhookRouter());
+
 // Mock notifications
 app.get("/notifications/count", (req, res) => res.json({ count: 0 }));
 
@@ -144,14 +158,15 @@ app.get("/", (req, res) => {
   res.send("Auxosys Backend with Supabase is running!");
 });
 
-app.get("/api/debug-error", (req, res) => {
-  res.json(global.lastCertError || { message: "No error logged yet" });
-});
+const http = require("http");
+const { createSocketServer } = require("./websocket/socketServer");
 
-if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
-}
+const server = http.createServer(app);
+const io = createSocketServer(server);
+app.set("io", io);
+
+server.listen(PORT, () => {
+  console.log(`Auxosys Backend with Socket.IO & Supabase running on port ${PORT}`);
+});
 
 module.exports = app;

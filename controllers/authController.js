@@ -51,7 +51,16 @@ exports.getProfile = async (req, res) => {
     }
     const token = authHeader.split(' ')[1];
 
-    const user = await verifyToken(token);
+    const decoded = await verifyToken(token);
+    const userId = decoded.id || decoded._id || decoded.user_metadata?.id;
+
+    let user = decoded;
+    if (userId) {
+      const { data: fetchRes } = await supabase.auth.admin.getUserById(userId);
+      if (fetchRes?.user) {
+        user = fetchRes.user;
+      }
+    }
 
     if (user.email === "auxosys@gmail.com" || user.email === "admin@auxosys.com") {
       return res.status(200).json({
@@ -61,17 +70,14 @@ exports.getProfile = async (req, res) => {
             id: user.id,
             email: user.email,
             role: "Superadmin",
-            permissions: ["careers", "newsroom", "seo", "contact", "subscriptions", "legal", "access-control"] // full access based on routes
+            permissions: ["dashboard", "careers", "newsroom", "seo", "contact", "subscriptions", "legal", "access-control", "outreach", "offer_letters", "client_management"]
           }
         }
       });
     }
 
-    // For sub-admins, read permissions from user_metadata
     const permissions = user.user_metadata?.permissions || [];
     
-    // Convert permissions array into the frontend-expected format for backward compatibility
-    // Wait, frontend expects an array of strings or objects. We'll send the raw array of objects.
     res.status(200).json({
       success: true,
       data: {
