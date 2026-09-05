@@ -207,14 +207,90 @@ async function listMessages(req, res) {
   }
 }
 
+const { ImapFlow } = require('imapflow');
+
+async function syncGmailPastMessagesInternal(supabase, limit = 50) {
+  try {
+    const user = process.env.GMAIL_SMTP_USER || 'auxosys@gmail.com';
+    const pass = process.env.GMAIL_APP_PASSWORD || 'jeetytntyzjwwtwb';
+
+    const { data: sender } = await supabase.from('sender_emails').select('id').eq('status', 'active').limit(1).maybeSingle();
+    const defaultSenderId = sender ? sender.id : null;
+
+    const client = new ImapFlow({
+      host: 'imap.gmail.com',
+      port: 993,
+      secure: true,
+      auth: { user, pass },
+      logger: false,
+    });
+
+    await client.connect();
+    const lock = await client.getMailboxLock('INBOX');
+    let count = 0;
+    try {
+      const uids = await client.search({ all: true }, { uid: true });
+      const sorted = uids.sort((a, b) => b - a);
+      const page = sorted.slice(0, limit);
+
+      const records = [];
+      for await (const msg of client.fetch(page, { envelope: true, flags: true }, { uid: true })) {
+        const env = msg.envelope || {};
+        const senderAddress = env.from?.[0]?.address || 'unknown@domain.com';
+        const senderName = env.from?.[0]?.name || senderAddress.split('@')[0];
+        const subject = env.subject || '(No Subject)';
+        const dateIso = env.date ? new Date(env.date).toISOString() : new Date().toISOString();
+        const msgId = env.messageId || `gmail-${msg.uid}`;
+
+        const { data: existing } = await supabase
+          .from('campaign_logs')
+          .select('id')
+          .eq('brevo_message_id', msgId)
+          .maybeSingle();
+
+        if (!existing) {
+          const meta = {
+            subject: subject,
+            text: `Email from ${senderName} (${senderAddress}): ${subject}`,
+            body_text: `Email from ${senderName} (${senderAddress}): ${subject}`,
+            body_html: `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a;"><p><strong>From:</strong> ${senderName} &lt;${senderAddress}&gt;</p><p><strong>Subject:</strong> ${subject}</p><p>Received at ${new Date(dateIso).toLocaleString()}</p></div>`,
+          };
+
+          records.push({
+            sender_email_id: defaultSenderId,
+            recipient_email: senderAddress,
+            status: 'replied',
+            replied_at: dateIso,
+            created_at: dateIso,
+            delivered_at: dateIso,
+            error_message: JSON.stringify(meta),
+            brevo_message_id: msgId,
+          });
+        }
+      }
+
+      if (records.length > 0) {
+        const { data } = await supabase.from('campaign_logs').insert(records).select();
+        count = data ? data.length : records.length;
+      }
+    } finally {
+      lock.release();
+    }
+    await client.logout();
+    return count;
+  } catch (err) {
+    console.error('syncGmailPastMessagesInternal error:', err.message);
+    return 0;
+  }
+}
+
 /**
  * POST /api/mailboxes/:mailboxId/sync?folder=INBOX
  */
 async function syncFolder(req, res) {
   try {
-    const { mailboxId } = req.params;
-    const { folder = 'INBOX' } = req.query;
-    res.json({ synced: 0 });
+    const count = await syncGmailPastMessagesInternal(supabase, 50);
+    res.json({ synced: count });
   } catch (err) {
     res.status(500).json({ error: 'Failed to sync folder.' });
   }

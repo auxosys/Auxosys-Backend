@@ -5,6 +5,8 @@ exports.getApplicationReceivedTemplate = (data) => {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
 <title>Your Application Has Been Received | Auxosys</title>
 <!--[if mso]>
 <noscript>
@@ -16,11 +18,26 @@ exports.getApplicationReceivedTemplate = (data) => {
 </noscript>
 <![endif]-->
 <style>
+  :root {
+    color-scheme: light dark;
+    supported-color-schemes: light dark;
+  }
   body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
   table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
   img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
   body { margin: 0; padding: 0; width: 100% !important; height: 100% !important; background-color: #F5F8F8; }
   a { color: #0FB5A6; }
+
+  /* ── DARK MODE OVERRIDES (iOS Gmail / Apple Mail) ── */
+  u + .body .header-bg { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+  u + .body .status-bg-received { background-color: #0FB5A6 !important; background-image: linear-gradient(#0FB5A6, #0FB5A6) !important; }
+  u + .body .dark-badge { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+
+  @media (prefers-color-scheme: dark) {
+    .header-bg { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+    .status-bg-received { background-color: #0FB5A6 !important; background-image: linear-gradient(#0FB5A6, #0FB5A6) !important; }
+    .dark-badge { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+  }
 
   /* ── MOBILE ── */
   @media screen and (max-width: 600px) {
@@ -37,7 +54,7 @@ exports.getApplicationReceivedTemplate = (data) => {
   }
 </style>
 </head>
-<body style="margin:0; padding:0; background-color:#F5F8F8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<body class="body" style="margin:0; padding:0; background-color:#F5F8F8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
 
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F5F8F8;">
     <tr>
@@ -47,7 +64,7 @@ exports.getApplicationReceivedTemplate = (data) => {
 
           <!-- Header: logo lockup -->
           <tr>
-            <td style="background-color:#0E1B21; padding: 26px 40px;" class="fluid-padding">
+            <td class="header-bg fluid-padding" style="background-color:#0E1B21; background-image: linear-gradient(#0E1B21, #0E1B21); padding: 26px 40px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="left" valign="middle">
@@ -56,8 +73,10 @@ exports.getApplicationReceivedTemplate = (data) => {
                         <td valign="middle" style="padding-right:10px;">
                           <img src="https://auxosys.com/Auxosys-icon-mono-white.png" width="48" height="48" alt="Auxosys" style="display:block; width:48px; height:48px;">
                         </td>
-                        <td valign="middle" style="font-size:19px; font-weight:800; color:#FFFFFF; letter-spacing:-0.02em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                          AUXOSYS
+                        <td valign="middle">
+                          <svg width="110" height="22" viewBox="0 0 110 22" xmlns="http://www.w3.org/2000/svg" style="display:block; width:110px; height:22px;">
+                            <text x="0" y="17" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="19" font-weight="800" letter-spacing="-0.02em" fill="#FFFFFF">AUXOSYS</text>
+                          </svg>
                         </td>
                       </tr>
                     </table>
@@ -69,7 +88,7 @@ exports.getApplicationReceivedTemplate = (data) => {
 
           <!-- Status strip -->
           <tr>
-            <td style="background-color:#0FB5A6; padding: 10px 40px;" class="fluid-padding">
+            <td class="status-bg-received fluid-padding" style="background-color:#0FB5A6; background-image: linear-gradient(#0FB5A6, #0FB5A6); padding: 10px 40px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
@@ -137,7 +156,7 @@ exports.getApplicationReceivedTemplate = (data) => {
                     <!-- CTA button -->
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="stack-btn">
                       <tr>
-                        <td style="border-radius:10px; background-color:#0FB5A6;">
+                        <td style="border-radius:10px; background-color:#0FB5A6; background-image: linear-gradient(#0FB5A6, #0FB5A6);">
                           <a href="mailto:careers@auxosys.com" style="display:inline-block; padding:13px 26px; font-size:14px; font-weight:700; color:#FFFFFF; text-decoration:none; border-radius:10px;">
                             Email Careers Team →
                           </a>
@@ -177,7 +196,7 @@ exports.getApplicationReceivedTemplate = (data) => {
                     <table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" class="sig-card-inner">
                       <tr>
                         <td class="sig-icon-cell" valign="middle" width="52" style="padding-right:16px;">
-                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:44px; height:44px; background-color:#0E1B21; border-radius:10px;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="dark-badge" style="width:44px; height:44px; background-color:#0E1B21; background-image: linear-gradient(#0E1B21, #0E1B21); border-radius:10px;">
                             <tr>
                               <td align="center" valign="middle" style="width:44px; height:44px;">
                                 <img src="https://auxosys.com/Auxosys-icon-mono-white.png" width="22" height="22" alt="Auxosys" style="display:block; width:22px; height:22px;">
@@ -228,6 +247,8 @@ exports.getApplicationRejectedTemplate = (data) => {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
 <title>Update on Your Application | Auxosys</title>
 <!--[if mso]>
 <noscript>
@@ -239,11 +260,26 @@ exports.getApplicationRejectedTemplate = (data) => {
 </noscript>
 <![endif]-->
 <style>
+  :root {
+    color-scheme: light dark;
+    supported-color-schemes: light dark;
+  }
   body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
   table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
   img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
   body { margin: 0; padding: 0; width: 100% !important; height: 100% !important; background-color: #F5F8F8; }
   a { color: #0FB5A6; }
+
+  /* ── DARK MODE OVERRIDES (iOS Gmail / Apple Mail) ── */
+  u + .body .header-bg { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+  u + .body .status-bg-rejected { background-color: #14232A !important; background-image: linear-gradient(#14232A, #14232A) !important; }
+  u + .body .dark-badge { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+
+  @media (prefers-color-scheme: dark) {
+    .header-bg { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+    .status-bg-rejected { background-color: #14232A !important; background-image: linear-gradient(#14232A, #14232A) !important; }
+    .dark-badge { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+  }
 
   /* ── MOBILE ── */
   @media screen and (max-width: 600px) {
@@ -253,6 +289,10 @@ exports.getApplicationRejectedTemplate = (data) => {
     .headline { font-size: 19px !important; }
     .stack-btn { display: block !important; width: 100% !important; }
     .stack-btn a { display: block !important; width: 100% !important; box-sizing: border-box !important; text-align: center !important; }
+    .sig-card-inner { display: block !important; }
+    .sig-icon-cell { display: block !important; width: 100% !important; padding-right: 0 !important; margin-bottom: 12px !important; }
+    .sig-icon-cell table { margin: 0 auto !important; }
+    .sig-text-cell { display: block !important; width: 100% !important; text-align: center !important; }
   }
 
   /* ── DESKTOP / WIDE WEBMAIL ── */
@@ -261,7 +301,7 @@ exports.getApplicationRejectedTemplate = (data) => {
   }
 </style>
 </head>
-<body style="margin:0; padding:0; background-color:#F5F8F8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<body class="body" style="margin:0; padding:0; background-color:#F5F8F8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
 
   <span style="display:none; font-size:1px; color:#F5F8F8; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
     An update on your application for ${data.JobTitle} at Auxosys.
@@ -275,7 +315,7 @@ exports.getApplicationRejectedTemplate = (data) => {
 
           <!-- Header: logo lockup -->
           <tr>
-            <td style="background-color:#0E1B21; padding: 26px 40px;" class="fluid-padding">
+            <td class="header-bg fluid-padding" style="background-color:#0E1B21; background-image: linear-gradient(#0E1B21, #0E1B21); padding: 26px 40px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="left" valign="middle">
@@ -284,8 +324,10 @@ exports.getApplicationRejectedTemplate = (data) => {
                         <td valign="middle" style="padding-right:10px;">
                           <img src="https://auxosys.com/Auxosys-icon-mono-white.png" width="48" height="48" alt="Auxosys" style="display:block; width:48px; height:48px;">
                         </td>
-                        <td valign="middle" style="font-size:19px; font-weight:800; color:#FFFFFF; letter-spacing:-0.02em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                          AUXOSYS
+                        <td valign="middle">
+                          <svg width="110" height="22" viewBox="0 0 110 22" xmlns="http://www.w3.org/2000/svg" style="display:block; width:110px; height:22px;">
+                            <text x="0" y="17" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="19" font-weight="800" letter-spacing="-0.02em" fill="#FFFFFF">AUXOSYS</text>
+                          </svg>
                         </td>
                       </tr>
                     </table>
@@ -297,7 +339,7 @@ exports.getApplicationRejectedTemplate = (data) => {
 
           <!-- Status strip -->
           <tr>
-            <td style="background-color:#14232A; padding: 10px 40px;" class="fluid-padding">
+            <td class="status-bg-rejected fluid-padding" style="background-color:#14232A; background-image: linear-gradient(#14232A, #14232A); padding: 10px 40px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
@@ -409,7 +451,7 @@ exports.getApplicationRejectedTemplate = (data) => {
                     <table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" class="sig-card-inner">
                       <tr>
                         <td class="sig-icon-cell" valign="middle" width="52" style="padding-right:16px;">
-                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:44px; height:44px; background-color:#0E1B21; border-radius:10px;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="dark-badge" style="width:44px; height:44px; background-color:#0E1B21; background-image: linear-gradient(#0E1B21, #0E1B21); border-radius:10px;">
                             <tr>
                               <td align="center" valign="middle" style="width:44px; height:44px;">
                                 <img src="https://auxosys.com/Auxosys-icon-mono-white.png" width="22" height="22" alt="Auxosys" style="display:block; width:22px; height:22px;">
@@ -452,22 +494,52 @@ exports.getApplicationRejectedTemplate = (data) => {
 </body>
 </html>`;
 };
+
 exports.getAdminNotificationTemplate = (data) => {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
 <title>New Job Application</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    supported-color-schemes: light dark;
+  }
+  u + .body .header-bg { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+  @media (prefers-color-scheme: dark) {
+    .header-bg { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+  }
+</style>
 </head>
-<body style="font-family: Arial, sans-serif; background-color: #F5F8F8; padding: 20px;">
-  <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px;">
-    <h2>New Job Application Received</h2>
-    <p><strong>Applicant:</strong> ${data.firstName} ${data.lastName}</p>
-    <p><strong>Email:</strong> ${data.email}</p>
-    <p><strong>Phone:</strong> ${data.phone || 'N/A'}</p>
-    <p><strong>Role Applied For:</strong> ${data.appliedRole || 'N/A'}</p>
-    <br />
-    <p>Please check the <a href="https://admin.auxosys.com">admin panel</a> to view their application, resume, and cover letter.</p>
+<body class="body" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F5F8F8; padding: 20px; margin:0;">
+  <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; border: 1px solid #E7ECEC;">
+    <div class="header-bg" style="background-color: #0E1B21; background-image: linear-gradient(#0E1B21, #0E1B21); padding: 20px 30px; text-align: left;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td valign="middle" style="padding-right:10px;">
+            <img src="https://auxosys.com/Auxosys-icon-mono-white.png" width="36" height="36" alt="Auxosys" style="display:block; width:36px; height:36px;">
+          </td>
+          <td valign="middle">
+            <svg width="160" height="20" viewBox="0 0 160 20" xmlns="http://www.w3.org/2000/svg" style="display:block; width:160px; height:20px;">
+              <text x="0" y="16" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="18" font-weight="800" letter-spacing="-0.02em" fill="#FFFFFF">AUXOSYS ADMIN</text>
+            </svg>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <div style="padding: 30px;">
+      <h2 style="margin-top:0; color:#0E1B21;">New Job Application Received</h2>
+      <p style="font-size:15px; color:#10201F;"><strong>Applicant:</strong> ${data.firstName} ${data.lastName}</p>
+      <p style="font-size:15px; color:#10201F;"><strong>Email:</strong> ${data.email}</p>
+      <p style="font-size:15px; color:#10201F;"><strong>Phone:</strong> ${data.phone || 'N/A'}</p>
+      <p style="font-size:15px; color:#10201F;"><strong>Role Applied For:</strong> ${data.appliedRole || 'N/A'}</p>
+      <br />
+      <p style="font-size:14px; color:#56656B;">Please check the <a href="https://admin.auxosys.com" style="color:#0FB5A6; font-weight:600; text-decoration:none;">Admin Panel</a> to view their application, resume, and cover letter.</p>
+    </div>
   </div>
 </body>
 </html>`;
@@ -505,14 +577,29 @@ exports.getCertificateEmailTemplate = (certData) => {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
 <title>${title} | Auxosys</title>
 <style>
+  :root {
+    color-scheme: light dark;
+    supported-color-schemes: light dark;
+  }
   body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
   table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
   img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
   body { margin: 0; padding: 0; width: 100% !important; height: 100% !important; background-color: #F5F8F8; }
   a { color: #0FB5A6; }
   
+  /* ── DARK MODE OVERRIDES (iOS Gmail / Apple Mail) ── */
+  u + .body .header-bg { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+  u + .body .dark-badge { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+
+  @media (prefers-color-scheme: dark) {
+    .header-bg { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+    .dark-badge { background-color: #0E1B21 !important; background-image: linear-gradient(#0E1B21, #0E1B21) !important; }
+  }
+
   @media screen and (max-width: 600px) {
     .email-container { width: 100% !important; border-radius: 0 !important; }
     .fluid-padding { padding-left: 22px !important; padding-right: 22px !important; }
@@ -522,7 +609,7 @@ exports.getCertificateEmailTemplate = (certData) => {
   }
 </style>
 </head>
-<body style="margin:0; padding:0; background-color:#F5F8F8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<body class="body" style="margin:0; padding:0; background-color:#F5F8F8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F5F8F8;">
     <tr>
       <td align="center" style="padding: 16px 12px;">
@@ -530,7 +617,7 @@ exports.getCertificateEmailTemplate = (certData) => {
           
           <!-- Header: logo lockup -->
           <tr>
-            <td style="background-color:#0E1B21; padding: 26px 40px;" class="fluid-padding">
+            <td class="header-bg fluid-padding" style="background-color:#0E1B21; background-image: linear-gradient(#0E1B21, #0E1B21); padding: 26px 40px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="left" valign="middle">
@@ -539,8 +626,10 @@ exports.getCertificateEmailTemplate = (certData) => {
                         <td valign="middle" style="padding-right:10px;">
                           <img src="https://auxosys.com/Auxosys-icon-mono-white.png" width="48" height="48" alt="Auxosys" style="display:block; width:48px; height:48px;">
                         </td>
-                        <td valign="middle" style="font-size:19px; font-weight:800; color:#FFFFFF; letter-spacing:-0.02em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                          AUXOSYS
+                        <td valign="middle">
+                          <svg width="110" height="22" viewBox="0 0 110 22" xmlns="http://www.w3.org/2000/svg" style="display:block; width:110px; height:22px;">
+                            <text x="0" y="17" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="19" font-weight="800" letter-spacing="-0.02em" fill="#FFFFFF">AUXOSYS</text>
+                          </svg>
                         </td>
                       </tr>
                     </table>
@@ -607,7 +696,7 @@ exports.getCertificateEmailTemplate = (certData) => {
                         <td align="left" class="stack-btn">
                           <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                             <tr>
-                              <td style="border-radius:10px; background-color:#0FB5A6;">
+                              <td style="border-radius:10px; background-color:#0FB5A6; background-image: linear-gradient(#0FB5A6, #0FB5A6);">
                                 <a href="${pdf_url}" target="_blank" style="display:inline-block; padding:13px 26px; font-size:14px; font-weight:700; color:#FFFFFF; text-decoration:none; border-radius:10px;">
                                   Download Certificate PDF →
                                 </a>
@@ -655,7 +744,7 @@ exports.getCertificateEmailTemplate = (certData) => {
                     <table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" class="sig-card-inner">
                       <tr>
                         <td class="sig-icon-cell" valign="middle" width="52" style="padding-right:16px;">
-                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:44px; height:44px; background-color:#0E1B21; border-radius:10px;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="dark-badge" style="width:44px; height:44px; background-color:#0E1B21; background-image: linear-gradient(#0E1B21, #0E1B21); border-radius:10px;">
                             <tr>
                               <td align="center" valign="middle" style="width:44px; height:44px;">
                                 <img src="https://auxosys.com/Auxosys-icon-mono-white.png" width="22" height="22" alt="Auxosys" style="display:block; width:22px; height:22px;">

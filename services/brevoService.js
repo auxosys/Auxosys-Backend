@@ -16,9 +16,50 @@ function getApiKey() {
 }
 
 /**
- * Sends a transactional or outreach email via Brevo API / SMTP.
+ * Sends a transactional or outreach email via Gmail Direct SMTP (0 Brevo limit used) or Brevo API / SMTP.
  */
-async function sendEmail({ senderName, senderEmail, recipientEmail, subject, htmlContent, textContent, replyTo, tags, attachments }) {
+async function sendEmail({ senderName, senderEmail, recipientEmail, subject, htmlContent, textContent, replyTo, tags, attachments, provider, smtpUser, smtpPass }) {
+  const targetProvider = (provider || '').toLowerCase();
+  const gmailPass = smtpPass || process.env.GMAIL_APP_PASSWORD;
+  const gmailUser = smtpUser || process.env.GMAIL_SMTP_USER || 'auxosys@gmail.com';
+  const isBrevoExplicit = targetProvider === 'brevo' || (Array.isArray(tags) && tags.some(t => t.includes('brevo') || t.includes('campaign') || t.includes('automated')));
+
+  // 1. Send via Direct Gmail SMTP (0 Brevo Limit Used) for direct emails
+  if ((targetProvider === 'gmail' || (gmailPass && !isBrevoExplicit)) && targetProvider !== 'brevo') {
+    try {
+      const gmailTransporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: {
+          user: gmailUser,
+          pass: gmailPass,
+        },
+      });
+
+      const nodemailerAttachments = (attachments || []).map(a => ({
+        filename: a.name || a.filename || 'attachment',
+        content: typeof a.content === 'string' ? Buffer.from(a.content, 'base64') : a.content,
+        contentType: a.contentType || undefined,
+      }));
+
+      const info = await gmailTransporter.sendMail({
+        from: senderName ? `"${senderName}" <${senderEmail}>` : senderEmail,
+        to: recipientEmail,
+        replyTo: replyTo || senderEmail,
+        subject: subject,
+        html: htmlContent,
+        text: textContent,
+        attachments: nodemailerAttachments.length > 0 ? nodemailerAttachments : undefined,
+      });
+
+      return { messageId: info.messageId, provider: 'gmail' };
+    } catch (gmailErr) {
+      console.warn('[GmailSMTP] Direct Gmail SMTP failed, attempting Brevo fallback:', gmailErr.message);
+    }
+  }
+
+  // 2. Send via Brevo API
   const apiKey = getApiKey();
 
   const brevoAttachments = (attachments || []).map(a => ({
@@ -54,13 +95,13 @@ async function sendEmail({ senderName, senderEmail, recipientEmail, subject, htm
           timeout: 25000,
         }
       );
-      return { messageId: response.data?.messageId || response.data?.messageIds?.[0] };
+      return { messageId: response.data?.messageId || response.data?.messageIds?.[0], provider: 'brevo' };
     } catch (apiErr) {
       console.warn('[BrevoService] API call failed, falling back to Brevo SMTP:', apiErr.response?.data || apiErr.message);
     }
   }
 
-  // Fallback to Nodemailer Brevo SMTP
+  // 3. Fallback to Nodemailer Brevo SMTP
   const transporter = nodemailer.createTransport({
     host: 'smtp-brevo.com',
     port: 587,
@@ -73,7 +114,7 @@ async function sendEmail({ senderName, senderEmail, recipientEmail, subject, htm
 
   const nodemailerAttachments = (attachments || []).map(a => ({
     filename: a.name || 'attachment',
-    content: Buffer.from(a.content, 'base64'),
+    content: typeof a.content === 'string' ? Buffer.from(a.content, 'base64') : a.content,
     contentType: a.contentType || undefined,
   }));
 
@@ -87,7 +128,7 @@ async function sendEmail({ senderName, senderEmail, recipientEmail, subject, htm
     attachments: nodemailerAttachments.length > 0 ? nodemailerAttachments : undefined,
   });
 
-  return { messageId: info.messageId };
+  return { messageId: info.messageId, provider: 'brevo-smtp' };
 }
 
 /**

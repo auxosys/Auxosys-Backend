@@ -1,5 +1,6 @@
 const { supabase } = require('../services/supabaseClient');
 const { sendMail } = require('../services/smtpService');
+const { appendDraft } = require('../services/imapService');
 
 async function getMailboxOr404(mailboxId, res) {
   const { data, error } = await supabase.from('mailboxes').select('*').eq('id', mailboxId).single();
@@ -128,6 +129,18 @@ async function saveDraft(req, res) {
       console.error('Supabase insert into campaign_logs error:', error.message);
       return res.status(500).json({ error: error.message || 'Failed to save draft in database.' });
     }
+
+    // Async sync draft to Gmail IMAP [Gmail]/Drafts folder
+    (async () => {
+      try {
+        const { data: mb } = await supabase.from('mailboxes').select('*').limit(1).maybeSingle();
+        if (mb) {
+          await appendDraft(mb, supabase, { to: recipientEmail, subject: subject || '(Draft)', html: html || '', text: text || body || '' });
+        }
+      } catch (e) {
+        console.warn('[GmailDraftSync] Background sync warn:', e.message);
+      }
+    })();
 
     res.status(201).json({ success: true, draft: data });
   } catch (err) {

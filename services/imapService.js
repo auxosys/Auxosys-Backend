@@ -206,6 +206,34 @@ async function moveMessage(mailboxRow, supabase, fromFolder, uid, toFolder) {
   }
 }
 
+/** Appends a draft to Gmail's [Gmail]/Drafts folder via IMAP. */
+async function appendDraft(mailboxRow, supabase, { to, subject, html, text }) {
+  if (!mailboxRow) return null;
+  try {
+    const client = await openConnection(mailboxRow, supabase);
+    const rawMime = [
+      `From: "${mailboxRow.display_name || 'Auxosys'}" <${mailboxRow.email_address}>`,
+      `To: ${to || ''}`,
+      `Subject: ${subject || '(Draft)'}`,
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      html || text || '',
+    ].join('\r\n');
+
+    try {
+      await client.append('[Gmail]/Drafts', rawMime, ['\\Draft']);
+    } catch (_) {
+      await client.append('Drafts', rawMime, ['\\Draft']);
+    } finally {
+      await client.logout();
+    }
+    return true;
+  } catch (err) {
+    console.warn('[GmailIMAP] Draft sync warning:', err.message);
+    return false;
+  }
+}
+
 module.exports = {
   openConnection,
   listFolders,
@@ -214,4 +242,5 @@ module.exports = {
   setReadFlag,
   setStarredFlag,
   moveMessage,
+  appendDraft,
 };
