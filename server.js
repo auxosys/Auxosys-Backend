@@ -153,9 +153,31 @@ app.use("/api/webhooks", makeWebhookRouter());
 // Mock notifications
 app.get("/notifications/count", (req, res) => res.json({ count: 0 }));
 
-// Health check
+// Health check & AWS ALB probes
+const { checkDatabaseHealth, dbDriver, closePool } = require("./config/database");
+
 app.get("/", (req, res) => {
-  res.send("Auxosys Backend with Supabase is running!");
+  res.send("Auxosys Backend Service is running!");
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    driver: dbDriver,
+    environment: process.env.NODE_ENV || "development"
+  });
+});
+
+app.get("/health/ready", (req, res) => {
+  res.status(200).json({ status: "ready" });
+});
+
+app.get("/health/db", async (req, res) => {
+  const health = await checkDatabaseHealth();
+  const statusCode = health.status === "healthy" ? 200 : 503;
+  res.status(statusCode).json(health);
 });
 
 const http = require("http");
@@ -166,7 +188,26 @@ const io = createSocketServer(server);
 app.set("io", io);
 
 server.listen(PORT, () => {
-  console.log(`Auxosys Backend with Socket.IO & Supabase running on port ${PORT}`);
+  console.log(`Auxosys Backend running on port ${PORT} [DB Driver: ${dbDriver}]`);
 });
+
+// Graceful Shutdown for AWS ECS / ALB / Docker containers
+const handleGracefulShutdown = async (signal) => {
+  console.log(`Received ${signal}. Shutting down server gracefully...`);
+  server.close(async () => {
+    console.log("HTTP server closed.");
+    await closePool();
+    console.log("Database connection pools closed.");
+    process.exit(0);
+  });
+  
+  setTimeout(() => {
+    console.error("Forced shutdown after 10 seconds timeout.");
+    process.exit(1);
+  }, 10000);
+};
+
+process.on("SIGTERM", () => handleGracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => handleGracefulShutdown("SIGINT"));
 
 module.exports = app;

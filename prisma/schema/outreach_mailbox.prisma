@@ -1,0 +1,202 @@
+// ============================================================
+// OUTREACH & MAILBOX MODELS (prisma/schema/outreach_mailbox.prisma)
+// ============================================================
+
+model SenderEmail {
+  id             String                 @id @default(uuid()) @db.Uuid
+  name           String
+  email          String                 @unique
+  department     String?
+  brevoSenderId  String?                @map("brevo_sender_id")
+  replyToEmail   String?                @map("reply_to_email")
+  isVerified     Boolean                @default(false) @map("is_verified")
+  status         String                 @default("active")
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  permissions    UserSenderPermission[]
+  campaigns      Campaign[]
+  campaignLogs   CampaignLog[]
+
+  @@map("sender_emails")
+}
+
+model ContactSuppression {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  reason    String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("contact_suppressions")
+}
+
+model Contact {
+  id             String           @id @default(uuid()) @db.Uuid
+  firstName      String?          @map("first_name")
+  lastName       String?          @map("last_name")
+  email          String           @unique
+  phone          String?
+  company        String?
+  tags           Json?            @default("[]")
+  source         String?          @default("direct")
+  status         String?          @default("active")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  contactListMaps ContactListMap[]
+  campaignLogs   CampaignLog[]
+
+  @@map("contacts")
+}
+
+model MailList {
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String
+  description     String?
+  contactCount    Int?             @default(0) @map("contact_count")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  contactListMaps ContactListMap[]
+  campaigns       Campaign[]
+
+  @@map("mail_lists")
+}
+
+model ContactListMap {
+  id        String   @id @default(uuid()) @db.Uuid
+  listId    String   @map("list_id") @db.Uuid
+  contactId String   @map("contact_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  mailList MailList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, contactId])
+  @@map("contact_list_map")
+}
+
+model Template {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String
+  subject   String
+  bodyHtml  String     @map("body_html")
+  bodyText  String?    @map("body_text")
+  variables Json?      @default("[]")
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  campaigns Campaign[]
+
+  @@map("templates")
+}
+
+model Campaign {
+  id              String        @id @default(uuid()) @db.Uuid
+  userId          String?       @map("user_id") @db.Uuid
+  senderEmailId   String?       @map("sender_email_id") @db.Uuid
+  createdByUserId String?       @map("created_by_user_id") @db.Uuid
+  name            String
+  templateId      String?       @map("template_id") @db.Uuid
+  listId          String?       @map("list_id") @db.Uuid
+  status          String        @default("draft")
+  dailyLimit      Int           @default(100) @map("daily_limit")
+  minDelaySec     Int           @default(30) @map("min_delay_sec")
+  maxDelaySec     Int           @default(90) @map("max_delay_sec")
+  trackOpens      Boolean       @default(true) @map("track_opens")
+  trackClicks     Boolean       @default(true) @map("track_clicks")
+  sentCount       Int           @default(0) @map("sent_count")
+  totalContacts   Int           @default(0) @map("total_contacts")
+  lastSentAt      DateTime?     @map("last_sent_at") @db.Timestamptz
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  senderEmail SenderEmail?  @relation(fields: [senderEmailId], references: [id], onDelete: SetNull)
+  template    Template?     @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  mailList    MailList?     @relation(fields: [listId], references: [id], onDelete: SetNull)
+  logs        CampaignLog[]
+
+  @@map("campaigns")
+}
+
+model CampaignLog {
+  id              String    @id @default(uuid()) @db.Uuid
+  campaignId      String?   @map("campaign_id") @db.Uuid
+  senderEmailId   String?   @map("sender_email_id") @db.Uuid
+  createdByUserId String?   @map("created_by_user_id") @db.Uuid
+  contactId       String?   @map("contact_id") @db.Uuid
+  recipientEmail  String    @map("recipient_email")
+  brevoMessageId  String?   @map("brevo_message_id")
+  status          String    @default("queued")
+  retryCount      Int       @default(0) @map("retry_count")
+  sentAt          DateTime? @map("sent_at") @db.Timestamptz
+  deliveredAt     DateTime? @map("delivered_at") @db.Timestamptz
+  openedAt        DateTime? @map("opened_at") @db.Timestamptz
+  clickedAt       DateTime? @map("clicked_at") @db.Timestamptz
+  repliedAt       DateTime? @map("replied_at") @db.Timestamptz
+  errorMessage    String?   @map("error_message")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  campaign    Campaign?    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  senderEmail SenderEmail? @relation(fields: [senderEmailId], references: [id], onDelete: SetNull)
+  contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([brevoMessageId], map: "idx_campaign_logs_brevo_msg")
+  @@index([senderEmailId], map: "idx_campaign_logs_sender")
+  @@index([createdByUserId], map: "idx_campaign_logs_user")
+  @@index([campaignId], map: "idx_campaign_logs_campaign")
+  @@map("campaign_logs")
+}
+
+model Mailbox {
+  id            String           @id @default(uuid()) @db.Uuid
+  email         String           @unique
+  displayName   String?          @map("display_name")
+  smtpHost      String?          @map("smtp_host")
+  smtpPort      Int?             @map("smtp_port")
+  imapHost      String?          @map("imap_host")
+  imapPort      Int?             @map("imap_port")
+  status        String           @default("active")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  messages      MailboxMessage[]
+
+  @@map("mailboxes")
+}
+
+model MailboxMessage {
+  id             String              @id @default(uuid()) @db.Uuid
+  mailboxId      String?             @map("mailbox_id") @db.Uuid
+  senderId       String?             @map("sender_id") @db.Uuid
+  recipientId    String?             @map("recipient_id") @db.Uuid
+  senderEmail    String              @map("sender_email")
+  recipientEmail String              @map("recipient_email")
+  subject        String?
+  body           String?
+  folder         String              @default("inbox")
+  isRead         Boolean?            @default(false) @map("is_read")
+  isStarred      Boolean?            @default(false) @map("is_starred")
+  isTrash        Boolean?            @default(false) @map("is_trash")
+  labels         Json?               @default("[]")
+  attachments    Json?               @default("[]")
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  mailbox        Mailbox?            @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  attachmentFiles MailboxAttachment[]
+
+  @@index([folder], map: "idx_messages_folder")
+  @@index([recipientEmail], map: "idx_messages_recipient")
+  @@map("mailbox_messages")
+}
+
+model MailboxAttachment {
+  id          String         @id @default(uuid()) @db.Uuid
+  messageId   String         @map("message_id") @db.Uuid
+  filename    String
+  contentType String?        @map("content_type")
+  size        Int?
+  url         String
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  message     MailboxMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("mailbox_attachments")
+}

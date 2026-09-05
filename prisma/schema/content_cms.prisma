@@ -1,0 +1,50 @@
+// ============================================================
+// CONTENT & CMS MODELS (prisma/schema/content_cms.prisma)
+// ============================================================
+
+model News {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String
+  slug        String?   @unique
+  excerpt     String?
+  content     String
+  category    String?   @default("general")
+  author      String?
+  status      String?   @default("draft")
+  publishedAt DateTime? @map("published_at") @db.Timestamptz
+  imageUrl    String?   @map("image_url")
+  viewsCount  Int?      @default(0) @map("views_count")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([slug], map: "idx_news_slug")
+  @@map("news")
+}
+
+model CmsPage {
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String
+  slug      String   @unique
+  content   Json?    @default("{}")
+  status    String   @default("published")
+  metaTitle String?  @map("meta_title")
+  metaDesc  String?  @map("meta_desc")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("pages")
+}
+
+model LegalPage {
+  id            String    @id @default(uuid()) @db.Uuid
+  slug          String    @unique
+  title         String
+  content       String
+  version       String?   @default("1.0")
+  status        String?   @default("published")
+  effectiveDate DateTime? @map("effective_date") @db.Date
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("legal_pages")
+}

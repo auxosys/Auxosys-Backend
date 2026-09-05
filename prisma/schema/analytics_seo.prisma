@@ -1,0 +1,181 @@
+// ============================================================
+// ANALYTICS, SEO & COOKIE COMPLIANCE MODELS (prisma/schema/analytics_seo.prisma)
+// ============================================================
+
+model SeoPage {
+  id           String           @id @default(uuid()) @db.Uuid
+  pageSlug     String           @unique @map("page_slug")
+  pageTitle    String?          @map("page_title")
+  metaTitle    String?          @map("meta_title")
+  metaDesc     String?          @map("meta_description")
+  keywords     Json?            @default("[]")
+  status       String           @default("Draft")
+  seoScore     Int?             @default(0) @map("seo_score")
+  publishAt    DateTime?        @map("publish_at") @db.Timestamptz
+  expireAt     DateTime?        @map("expire_at") @db.Timestamptz
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  histories    SeoPageHistory[]
+
+  @@map("seo_pages")
+}
+
+model SeoPageHistory {
+  id           String   @id @default(uuid()) @db.Uuid
+  pageId       String   @map("page_id") @db.Uuid
+  previousData Json?    @map("previous_data")
+  updatedBy    String?  @map("updated_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  page SeoPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@map("seo_page_history")
+}
+
+model SeoSetting {
+  id           String   @id @default(uuid()) @db.Uuid
+  siteName     String?  @map("site_name")
+  defaultTitle String?  @map("default_title")
+  titleSeparator String? @map("title_separator")
+  metaDescription String? @map("meta_description")
+  robotsTxt    String?  @map("robots_txt")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("seo_settings")
+}
+
+model SeoSitemapSetting {
+  id           String   @id @default(uuid()) @db.Uuid
+  autoGenerate Boolean  @default(true) @map("auto_generate")
+  includePages Boolean  @default(true) @map("include_pages")
+  includeNews  Boolean  @default(true) @map("include_news")
+  lastModified DateTime @default(now()) @map("last_modified") @db.Timestamptz
+
+  @@map("seo_sitemap_settings")
+}
+
+model SeoSitemapLink {
+  id        String   @id @default(uuid()) @db.Uuid
+  url       String   @unique
+  priority  Float?   @default(0.8)
+  changefreq String? @default("weekly")
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("seo_sitemap_links")
+}
+
+model SeoSystemFile {
+  id        String   @id @default(uuid()) @db.Uuid
+  filename  String   @unique
+  content   String
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("seo_system_files")
+}
+
+model SeoRedirect {
+  id        String   @id @default(uuid()) @db.Uuid
+  oldPath   String   @unique @map("old_path")
+  newPath   String   @map("new_path")
+  statusCode Int?    @default(301) @map("status_code")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("seo_redirects")
+}
+
+model SeoAuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  action    String
+  section   String
+  oldValue  Json?    @map("old_value")
+  newValue  Json?    @map("new_value")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("seo_audit_logs")
+}
+
+model SeoCrawlHistory {
+  id         String   @id @default(uuid()) @db.Uuid
+  url        String
+  statusCode Int?     @map("status_code")
+  loadTime   Float?   @map("load_time")
+  crawledAt  DateTime @default(now()) @map("crawled_at") @db.Timestamptz
+
+  @@map("seo_crawl_history")
+}
+
+model SeoIssue {
+  id          String   @id @default(uuid()) @db.Uuid
+  url         String
+  issueType   String   @map("issue_type")
+  severity    String   @default("medium")
+  description String?
+  isResolved  Boolean  @default(false) @map("is_resolved")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("seo_issues")
+}
+
+model SeoNavigationItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  label     String
+  path      String
+  category  String?
+  parentId  String?  @map("parent_id") @db.Uuid
+  sortOrder Int?     @default(0) @map("sort_order")
+  icon      String?
+  isActive  Boolean? @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  parent   SeoNavigationItem?  @relation("SeoNavHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children SeoNavigationItem[] @relation("SeoNavHierarchy")
+
+  @@map("seo_navigation")
+}
+
+model CookieConsent {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String?   @map("user_id") @db.Uuid
+  consentType    String?   @default("analytics") @map("consent_type")
+  ipAddress      String?   @map("ip_address")
+  userAgent      String?   @map("user_agent")
+  choices        Json?     @default("{}")
+  consentGivenAt DateTime? @default(now()) @map("consent_given_at") @db.Timestamptz
+  expiresAt      DateTime? @map("expires_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([ipAddress], map: "idx_cookie_consents_ip")
+  @@map("cookie_consents")
+}
+
+model CookieBannerSetting {
+  id            String   @id @default(uuid()) @db.Uuid
+  bannerTitle   String?  @map("banner_title")
+  bannerText    String?  @map("banner_text")
+  privacyPolicy String?  @map("privacy_policy_link")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("cookie_banner_settings")
+}
+
+model CookieAuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  action    String
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("cookie_audit_logs")
+}
+
+model Subscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  status    String?  @default("active")
+  source    String?  @default("website")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("subscriptions")
+}

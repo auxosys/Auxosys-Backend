@@ -80,6 +80,72 @@ async function listMessages(req, res) {
     } else if (normFolder === 'SENT') {
       // Outbound emails sent via Brevo / Compose
       query = query.in('status', ['sent', 'delivered', 'opened', 'clicked', 'replied']);
+    } else if (normFolder === 'DRAFTS' || normFolder === 'STARRED' || normFolder === 'TRASH') {
+      let draftQuery = supabase
+        .from('campaign_logs')
+        .select('*, sender_emails(id, email, name)', { count: 'exact' });
+
+      if (normFolder === 'DRAFTS') {
+        draftQuery = draftQuery.eq('status', 'draft');
+      } else if (normFolder === 'STARRED') {
+        draftQuery = draftQuery.eq('status', 'starred');
+      } else if (normFolder === 'TRASH') {
+        draftQuery = draftQuery.eq('status', 'trash');
+      }
+
+      if (allowedSenderIds && allowedSenderIds.length > 0) {
+        draftQuery = draftQuery.or(`sender_email_id.in.(${allowedSenderIds.join(',')}),sender_email_id.is.null`);
+      }
+
+      if (!isAll) {
+        const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(mailboxId);
+        if (isUuid) {
+          draftQuery = draftQuery.or(`sender_email_id.eq.${mailboxId},sender_email_id.is.null`);
+        }
+      }
+
+      if (q) {
+        draftQuery = draftQuery.or(`recipient_email.ilike.%${q}%,error_message.ilike.%${q}%`);
+      }
+
+      const { data: logs, count: logCount } = await draftQuery.order('created_at', { ascending: false });
+
+      const formatted = (logs || []).map(l => {
+        let meta = {};
+        if (l.error_message && l.error_message.startsWith('{')) {
+          try { meta = JSON.parse(l.error_message); } catch (e) {}
+        }
+        const msgSubject = meta.subject || l.subject || '(Draft)';
+        const msgBodyText = meta.body_text || meta.text || '';
+        const msgBodyHtml = meta.body_html || meta.html || '';
+
+        return {
+          id: l.id,
+          mailbox_id: mailboxId,
+          folder: normFolder,
+          uid: l.id,
+          message_id: l.id,
+          from_name: l.sender_emails?.name || 'Auxosys',
+          from_address: l.sender_emails?.email || 'contact@auxosys.com',
+          to_addresses: [{ address: l.recipient_email || '' }],
+          subject: msgSubject,
+          snippet: msgBodyText ? msgBodyText.substring(0, 100) : '(Draft)',
+          body_text: msgBodyText,
+          body_html: msgBodyHtml,
+          has_attachments: false,
+          is_read: true,
+          is_starred: normFolder === 'STARRED',
+          received_at: l.created_at,
+          synced_at: l.created_at,
+        };
+      });
+
+      return res.json({
+        messages: formatted,
+        total: logCount || formatted.length,
+        page: Number(page),
+        pageSize: Number(pageSize)
+      });
     }
 
     if (q) {
@@ -208,30 +274,38 @@ async function getMessage(req, res) {
         try { meta = JSON.parse(log.error_message); } catch (e) {}
       }
 
+      const isDraft = log.status === 'draft';
       const isReply = !!log.replied_at || log.status === 'replied';
-      const msgSubject = meta.subject || log.subject || (isReply ? 'Lead Reply' : 'Outreach Communication');
-      const msgBodyText = meta.body_text || meta.text || (isReply
+      const folderName = isDraft ? 'DRAFTS' : isReply ? 'INBOX' : 'SENT';
+
+      const msgSubject = meta.subject || log.subject || (isDraft ? '(Draft)' : isReply ? 'Lead Reply' : 'Outreach Communication');
+      const msgBodyText = meta.body_text || meta.text || (isDraft
+        ? ''
+        : isReply
         ? `Hello Auxosys Team,\n\nThank you for reaching out. I received your message and would like to follow up.\n\nBest regards,\n${log.recipient_email}`
         : `Outreach email sent to ${log.recipient_email}.\nStatus: ${log.status}`);
-      const msgBodyHtml = meta.body_html || meta.html || (isReply
+      const msgBodyHtml = meta.body_html || meta.html || (isDraft
+        ? ''
+        : isReply
         ? `<div style="font-family: sans-serif; line-height: 1.6; color: #1e293b;"><p>Hello Auxosys Team,</p><p>Thank you for reaching out. I received your message regarding <strong>${msgSubject}</strong> and would like to follow up.</p><br/><p>Best regards,<br/><strong>${log.recipient_email}</strong></p></div>`
         : `<div style="font-family: sans-serif; line-height: 1.6; color: #1e293b;"><p>Direct message sent via Brevo to <strong>${log.recipient_email}</strong>.</p><p>Subject: ${msgSubject}</p><p>Status: <span style="color: #16a34a; font-weight: 600;">${log.status}</span></p></div>`);
 
       const formatted = {
         id: log.id,
         mailbox_id: mailboxId,
-        folder: isReply ? 'INBOX' : 'SENT',
+        folder: folderName,
+        status: log.status,
         message_id: log.brevo_message_id || log.id,
-        from_name: isReply ? log.recipient_email.split('@')[0] : (log.sender_emails?.name || 'Auxosys Sales'),
-        from_address: isReply ? log.recipient_email : (log.sender_emails?.email || 'sales@auxosys.com'),
-        to_addresses: isReply ? [{ address: log.sender_emails?.email || 'sales@auxosys.com' }] : [{ address: log.recipient_email }],
+        from_name: isReply ? log.recipient_email.split('@')[0] : (log.sender_emails?.name || 'Auxosys'),
+        from_address: isReply ? log.recipient_email : (log.sender_emails?.email || 'contact@auxosys.com'),
+        to_addresses: isReply ? [{ address: log.sender_emails?.email || 'contact@auxosys.com' }] : [{ address: log.recipient_email }],
         subject: msgSubject,
-        snippet: isReply ? `Lead reply from ${log.recipient_email}` : `Sent message to ${log.recipient_email}`,
+        snippet: isDraft ? (msgBodyText ? msgBodyText.substring(0, 100) : '(Draft)') : isReply ? `Lead reply from ${log.recipient_email}` : `Sent message to ${log.recipient_email}`,
         body_text: msgBodyText,
         body_html: msgBodyHtml,
         has_attachments: Array.isArray(meta.attachments) && meta.attachments.length > 0,
         is_read: true,
-        is_starred: false,
+        is_starred: log.status === 'starred',
         received_at: log.replied_at || log.sent_at || log.created_at,
       };
       return res.json({ message: formatted });

@@ -1,0 +1,69 @@
+// ============================================================
+// USERS, AUTHENTICATION & ACCESS CONTROL (prisma/schema/users_auth.prisma)
+// ============================================================
+
+model AppUser {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  firstName    String?  @map("first_name")
+  lastName     String?  @map("last_name")
+  passwordHash String?  @map("password_hash")
+  role         String   @default("user")
+  permissions  Json?    @default("[]")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("app_users")
+}
+
+model AccessControl {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String?  @unique @map("user_id") @db.Uuid
+  email             String   @unique
+  fullName          String?  @map("full_name")
+  role              String   @default("sub_admin")
+  pagesAccess       Json?    @default("[]") @map("pages_access")
+  dashboardAccess   Boolean? @default(true) @map("dashboard_access")
+  dashboardReadonly Boolean? @default(false) @map("dashboard_readonly")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("access_control")
+}
+
+model UserSenderPermission {
+  id            String      @id @default(uuid()) @db.Uuid
+  userId        String      @map("user_id") @db.Uuid
+  senderEmailId String      @map("sender_email_id") @db.Uuid
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  senderEmail   SenderEmail @relation(fields: [senderEmailId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, senderEmailId])
+  @@map("user_sender_permissions")
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  value     Json?
+  category  String?  @default("general")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("settings")
+}
+
+model HrCompanySetting {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyName    String?  @map("company_name")
+  companyAddress String?  @map("company_address")
+  logoUrl        String?  @map("logo_url")
+  signatoryName  String?  @map("signatory_name")
+  signatoryTitle String?  @map("signatory_title")
+  metadata       Json?    @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("hr_company_settings")
+}

@@ -58,6 +58,12 @@ function makeOutreachRouter(supabase) {
   // Stats
   router.get('/stats', controller.getDashboardStats);
 
+  // Drafts
+  const { saveDraft, deleteDraft } = require('../controllers/composeController');
+  router.post('/drafts', saveDraft);
+  router.put('/drafts/:id', saveDraft);
+  router.delete('/drafts/:id', deleteDraft);
+
   // Direct Compose Email (Brevo-powered, no campaign required)
   router.post('/send', controller.sendDirectEmail);
 

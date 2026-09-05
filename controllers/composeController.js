@@ -77,4 +77,78 @@ async function send(req, res) {
   }
 }
 
-module.exports = { send };
+async function saveDraft(req, res) {
+  try {
+    const { draftId, senderEmailId, senderEmail, to, subject, html, text, body } = req.body;
+    const recipientEmail = Array.isArray(to) ? to.join(',') : (to || '');
+    const user = req.user;
+
+    // Resolve a valid sender_email_id if not explicitly provided
+    let senderIdToUse = senderEmailId && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(senderEmailId)
+      ? senderEmailId
+      : null;
+
+    if (!senderIdToUse) {
+      const { data: defaultSender } = await supabase.from('sender_emails').select('id').eq('status', 'active').limit(1).maybeSingle();
+      if (defaultSender) senderIdToUse = defaultSender.id;
+    }
+
+    const meta = {
+      subject: subject || '(Draft)',
+      html: html || '',
+      text: text || body || '',
+      body_text: text || body || '',
+      body_html: html || ''
+    };
+
+    const draftRecord = {
+      sender_email_id: senderIdToUse,
+      created_by_user_id: user?.id || null,
+      recipient_email: recipientEmail || 'draft@auxosys.com',
+      status: 'draft',
+      error_message: JSON.stringify(meta),
+      created_at: new Date().toISOString()
+    };
+
+    const targetId = draftId || req.params?.id;
+    if (targetId) {
+      const { data, error } = await supabase
+        .from('campaign_logs')
+        .update(draftRecord)
+        .eq('id', targetId)
+        .select()
+        .single();
+
+      if (!error && data) return res.json({ success: true, draft: data });
+    }
+
+    const { data, error } = await supabase.from('campaign_logs').insert([draftRecord]).select().single();
+
+    if (error) {
+      console.error('Supabase insert into campaign_logs error:', error.message);
+      return res.status(500).json({ error: error.message || 'Failed to save draft in database.' });
+    }
+
+    res.status(201).json({ success: true, draft: data });
+  } catch (err) {
+    console.error('saveDraft failed:', err);
+    res.status(500).json({ error: err.message || 'Failed to save draft.' });
+  }
+}
+
+async function deleteDraft(req, res) {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'Draft ID is required.' });
+
+    const { error } = await supabase.from('campaign_logs').delete().eq('id', id);
+    if (error) throw error;
+
+    res.json({ success: true, deletedId: id });
+  } catch (err) {
+    console.error('deleteDraft failed:', err);
+    res.status(500).json({ error: err.message || 'Failed to delete draft.' });
+  }
+}
+
+module.exports = { send, saveDraft, deleteDraft };

@@ -1,0 +1,150 @@
+// ============================================================
+// BUSINESS & HR MANAGEMENT MODELS (prisma/schema/business_hr.prisma)
+// ============================================================
+
+model Client {
+  id            String   @id @default(uuid()) @db.Uuid
+  clientId      String?  @unique @map("client_id")
+  companyName   String   @map("company_name")
+  contactPerson String?  @map("contact_person")
+  email         String   @unique
+  phone         String?
+  location      String?
+  status        String?  @default("active")
+  website       String?
+  industry      String?
+  metadata      Json?    @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("clients")
+}
+
+model Career {
+  id              String        @id @default(uuid()) @db.Uuid
+  title           String
+  department      String
+  location        String
+  type            String        @default("Full-time")
+  experienceLevel String?       @map("experience_level")
+  salaryRange     String?       @map("salary_range")
+  description     String
+  requirements    Json?         @default("[]")
+  status          String        @default("active")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  applications    Application[]
+
+  @@map("careers")
+}
+
+model Application {
+  id          String   @id @default(uuid()) @db.Uuid
+  jobId       String?  @map("job_id") @db.Uuid
+  fullName    String   @map("full_name")
+  email       String
+  phone       String?
+  resumeUrl   String   @map("resume_url")
+  coverLetter String?  @map("cover_letter")
+  status      String?  @default("pending")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  career Career? @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("applications")
+}
+
+model OfferLetter {
+  id               String   @id @default(uuid()) @db.Uuid
+  offerLetterId    String   @unique @map("offer_letter_id")
+  recipientName    String   @map("recipient_name")
+  recipientEmail   String   @map("recipient_email")
+  position         String
+  ctc              String?
+  joiningDate      DateTime? @map("joining_date") @db.Date
+  status           String?  @default("draft")
+  pdfUrl           String?  @map("pdf_url")
+  verificationCode String?  @unique @map("verification_code")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([verificationCode], map: "idx_offer_letters_code")
+  @@map("offer_letters")
+}
+
+model OfferLetterClause {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  content     String
+  isMandatory Boolean  @default(false) @map("is_mandatory")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("offer_letter_clauses")
+}
+
+model OfferLetterSignatory {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  title     String
+  email     String?
+  signature String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("offer_letter_signatories")
+}
+
+model Certificate {
+  id               String   @id @default(uuid()) @db.Uuid
+  certificateId    String   @unique @map("certificate_id")
+  recipientName    String   @map("recipient_name")
+  recipientEmail   String   @map("recipient_email")
+  title            String
+  issueDate        DateTime @map("issue_date") @db.Date
+  status           String?  @default("issued")
+  pdfUrl           String?  @map("pdf_url")
+  verificationCode String?  @unique @map("verification_code")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([verificationCode], map: "idx_certificates_code")
+  @@map("certificates")
+}
+
+model CertificateSignature {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  name      String
+  designJson Json?   @default("{}") @map("design_json")
+  htmlCode  String   @map("html_code")
+  isDefault Boolean? @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("certificate_signatures")
+}
+
+model CertificateVerificationLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  certificateId String?  @map("certificate_id") @db.Uuid
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  verifiedAt    DateTime @default(now()) @map("verified_at") @db.Timestamptz
+
+  @@map("certificate_verification_logs")
+}
+
+model ContactMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  message   String
+  status    String   @default("new")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("contact_messages")
+}
