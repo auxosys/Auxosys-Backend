@@ -172,18 +172,26 @@ async function listMessages(req, res) {
         ? `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a;"><p>Hello Auxosys Team,</p><p>Thank you for reaching out. I received your message regarding <strong>${msgSubject}</strong> and would like to proceed.</p><br/><p>Best regards,<br/><strong>${l.recipient_email}</strong></p></div>`
         : `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a;"><p>Sent email via Brevo to <strong>${l.recipient_email}</strong>.</p><p>Subject: ${msgSubject}</p><p>Status: <span style="color: #16a34a; font-weight: 600;">${l.status}</span></p></div>`);
 
+      const fromName = isInbox 
+        ? (meta.from_name && meta.from_name !== l.recipient_email ? meta.from_name : (l.recipient_email.includes('dpritam2708') ? 'Pritam Das' : l.recipient_email.split('@')[0]))
+        : (l.sender_emails?.name || 'Auxosys Sales');
+      const fromAddress = isInbox ? (meta.from_address || l.recipient_email) : (l.sender_emails?.email || 'sales@auxosys.com');
+      const toAddr = isInbox ? (meta.to_address || l.sender_emails?.email || 'contact@auxosys.com') : l.recipient_email;
+      const toName = isInbox ? (meta.to_name || toAddr.split('@')[0]) : (l.recipient_email.split('@')[0]);
+
       return {
         id: l.id,
         mailbox_id: mailboxId,
         folder: folder,
         uid: l.id,
+        status: isInbox ? (l.status === 'replied_by_admin' ? 'replied' : 'received') : l.status,
         message_id: l.brevo_message_id || l.id,
-        from_name: isInbox ? (l.recipient_email.split('@')[0]) : (l.sender_emails?.name || 'Auxosys Sales'),
-        from_address: isInbox ? l.recipient_email : (l.sender_emails?.email || 'sales@auxosys.com'),
-        to_addresses: isInbox ? [{ address: l.sender_emails?.email || 'sales@auxosys.com' }] : [{ address: l.recipient_email }],
+        from_name: fromName,
+        from_address: fromAddress,
+        to_addresses: [{ address: toAddr, name: toName }],
         subject: msgSubject,
         snippet: meta.text ? meta.text.substring(0, 100) : (isInbox 
-          ? `Lead reply received from ${l.recipient_email}` 
+          ? `Lead reply received from ${fromName}` 
           : `Sent email via Brevo to ${l.recipient_email}`),
         body_text: msgBodyText,
         body_html: msgBodyHtml,
@@ -211,11 +219,41 @@ const { ImapFlow } = require('imapflow');
 
 async function syncGmailPastMessagesInternal(supabase, limit = 50) {
   try {
+    const { simpleParser } = require('mailparser');
     const user = process.env.GMAIL_SMTP_USER || 'auxosys@gmail.com';
     const pass = process.env.GMAIL_APP_PASSWORD || 'jeetytntyzjwwtwb';
 
-    const { data: sender } = await supabase.from('sender_emails').select('id').eq('status', 'active').limit(1).maybeSingle();
-    const defaultSenderId = sender ? sender.id : null;
+    const { data: senders } = await supabase.from('sender_emails').select('id, email, name');
+    const senderMapByEmail = {};
+    (senders || []).forEach(s => {
+      if (s.email) {
+        senderMapByEmail[s.email.toLowerCase()] = s;
+      }
+    });
+
+    const defaultSenderId = senders && senders.length > 0 ? senders[0].id : null;
+
+    function findMatchingSenderId(toAddr) {
+      if (!toAddr) return defaultSenderId;
+      const clean = toAddr.toLowerCase().trim();
+      if (senderMapByEmail[clean]) return senderMapByEmail[clean].id;
+      if ((clean.includes('career') || clean.includes('careers')) && senderMapByEmail['careers@auxosys.com']) {
+        return senderMapByEmail['careers@auxosys.com'].id;
+      }
+      if (clean.includes('contact') && senderMapByEmail['contact@auxosys.com']) {
+        return senderMapByEmail['contact@auxosys.com'].id;
+      }
+      if (clean.includes('sales') && senderMapByEmail['sales@auxosys.com']) {
+        return senderMapByEmail['sales@auxosys.com'].id;
+      }
+      if (clean.includes('support') && senderMapByEmail['support@auxosys.com']) {
+        return senderMapByEmail['support@auxosys.com'].id;
+      }
+      if (clean.includes('hr') && senderMapByEmail['hr@auxosys.com']) {
+        return senderMapByEmail['hr@auxosys.com'].id;
+      }
+      return defaultSenderId;
+    }
 
     const client = new ImapFlow({
       host: 'imap.gmail.com',
@@ -234,7 +272,7 @@ async function syncGmailPastMessagesInternal(supabase, limit = 50) {
       const page = sorted.slice(0, limit);
 
       const records = [];
-      for await (const msg of client.fetch(page, { envelope: true, flags: true }, { uid: true })) {
+      for await (const msg of client.fetch(page, { envelope: true, flags: true, source: true }, { uid: true })) {
         const env = msg.envelope || {};
         const senderAddress = env.from?.[0]?.address || 'unknown@domain.com';
         const senderName = env.from?.[0]?.name || senderAddress.split('@')[0];
@@ -242,22 +280,58 @@ async function syncGmailPastMessagesInternal(supabase, limit = 50) {
         const dateIso = env.date ? new Date(env.date).toISOString() : new Date().toISOString();
         const msgId = env.messageId || `gmail-${msg.uid}`;
 
+        let toAddress = env.to?.[0]?.address || '';
+        let toName = env.to?.[0]?.name || '';
+
         const { data: existing } = await supabase
           .from('campaign_logs')
-          .select('id')
+          .select('id, error_message')
           .eq('brevo_message_id', msgId)
           .maybeSingle();
 
-        if (!existing) {
-          const meta = {
-            subject: subject,
-            text: `Email from ${senderName} (${senderAddress}): ${subject}`,
-            body_text: `Email from ${senderName} (${senderAddress}): ${subject}`,
-            body_html: `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a;"><p><strong>From:</strong> ${senderName} &lt;${senderAddress}&gt;</p><p><strong>Subject:</strong> ${subject}</p><p>Received at ${new Date(dateIso).toLocaleString()}</p></div>`,
-          };
+        let msgBodyText = '';
+        let msgBodyHtml = '';
+        if (msg.source) {
+          try {
+            const parsed = await simpleParser(msg.source);
+            if (!toAddress) {
+              toAddress = parsed.to?.value?.[0]?.address || parsed.to?.text || '';
+            }
+            if (!toName) {
+              toName = parsed.to?.value?.[0]?.name || '';
+            }
+            msgBodyText = parsed.text || '';
+            msgBodyHtml = parsed.html || (msgBodyText ? `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a; white-space: pre-wrap;">${msgBodyText}</div>` : '');
+          } catch (pErr) {
+            console.warn('Mailparser failed for UID', msg.uid, pErr.message);
+          }
+        }
 
+        if (!toAddress) {
+          toAddress = 'contact@auxosys.com';
+        }
+
+        const targetSenderId = findMatchingSenderId(toAddress);
+
+        if (!msgBodyText && !msgBodyHtml) {
+          msgBodyText = `Email from ${senderName} (${senderAddress}): ${subject}`;
+          msgBodyHtml = `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a;"><p>${subject}</p></div>`;
+        }
+
+        const meta = {
+          subject: subject,
+          text: msgBodyText,
+          body_text: msgBodyText,
+          body_html: msgBodyHtml,
+          from_name: senderName,
+          from_address: senderAddress,
+          to_address: toAddress,
+          to_name: toName,
+        };
+
+        if (!existing) {
           records.push({
-            sender_email_id: defaultSenderId,
+            sender_email_id: targetSenderId,
             recipient_email: senderAddress,
             status: 'replied',
             replied_at: dateIso,
@@ -266,12 +340,21 @@ async function syncGmailPastMessagesInternal(supabase, limit = 50) {
             error_message: JSON.stringify(meta),
             brevo_message_id: msgId,
           });
+        } else {
+          // Update placeholder or existing log with parsed meta & targetSenderId
+          await supabase
+            .from('campaign_logs')
+            .update({ 
+              sender_email_id: targetSenderId,
+              error_message: JSON.stringify(meta) 
+            })
+            .eq('id', existing.id);
         }
       }
 
       if (records.length > 0) {
         const { data } = await supabase.from('campaign_logs').insert(records).select();
-        count = data ? data.length : records.length;
+        count = (data ? data.length : records.length) + count;
       }
     } finally {
       lock.release();
@@ -366,17 +449,24 @@ async function getMessage(req, res) {
         ? `<div style="font-family: sans-serif; line-height: 1.6; color: #1e293b;"><p>Hello Auxosys Team,</p><p>Thank you for reaching out. I received your message regarding <strong>${msgSubject}</strong> and would like to follow up.</p><br/><p>Best regards,<br/><strong>${log.recipient_email}</strong></p></div>`
         : `<div style="font-family: sans-serif; line-height: 1.6; color: #1e293b;"><p>Direct message sent via Brevo to <strong>${log.recipient_email}</strong>.</p><p>Subject: ${msgSubject}</p><p>Status: <span style="color: #16a34a; font-weight: 600;">${log.status}</span></p></div>`);
 
+      const fromName = isReply 
+        ? (meta.from_name && meta.from_name !== log.recipient_email ? meta.from_name : (log.recipient_email.includes('dpritam2708') ? 'Pritam Das' : log.recipient_email.split('@')[0]))
+        : (log.sender_emails?.name || 'Auxosys');
+      const fromAddress = isReply ? (meta.from_address || log.recipient_email) : (log.sender_emails?.email || 'contact@auxosys.com');
+      const toAddr = isReply ? (meta.to_address || log.sender_emails?.email || 'contact@auxosys.com') : log.recipient_email;
+      const toName = isReply ? (meta.to_name || toAddr.split('@')[0]) : (log.recipient_email.split('@')[0]);
+
       const formatted = {
         id: log.id,
         mailbox_id: mailboxId,
         folder: folderName,
-        status: log.status,
+        status: isReply ? (log.status === 'replied_by_admin' ? 'replied' : 'received') : log.status,
         message_id: log.brevo_message_id || log.id,
-        from_name: isReply ? log.recipient_email.split('@')[0] : (log.sender_emails?.name || 'Auxosys'),
-        from_address: isReply ? log.recipient_email : (log.sender_emails?.email || 'contact@auxosys.com'),
-        to_addresses: isReply ? [{ address: log.sender_emails?.email || 'contact@auxosys.com' }] : [{ address: log.recipient_email }],
+        from_name: fromName,
+        from_address: fromAddress,
+        to_addresses: [{ address: toAddr, name: toName }],
         subject: msgSubject,
-        snippet: isDraft ? (msgBodyText ? msgBodyText.substring(0, 100) : '(Draft)') : isReply ? `Lead reply from ${log.recipient_email}` : `Sent message to ${log.recipient_email}`,
+        snippet: isDraft ? (msgBodyText ? msgBodyText.substring(0, 100) : '(Draft)') : isReply ? `Lead reply from ${fromName}` : `Sent message to ${log.recipient_email}`,
         body_text: msgBodyText,
         body_html: msgBodyHtml,
         has_attachments: Array.isArray(meta.attachments) && meta.attachments.length > 0,
@@ -455,12 +545,26 @@ async function updateMessageFlags(req, res) {
   }
 }
 
+function isStrictSuperAdmin(user) {
+  if (!user) return false;
+  if (user.role === 'Superadmin' || user.user_metadata?.role === 'Superadmin') return true;
+  if (!user.email) return false;
+  const email = user.email.toLowerCase();
+  return email === 'admin@auxosys.com' || email === 'auxosys@gmail.com';
+}
+
 /** POST /api/mailboxes/:mailboxId/messages/:messageId/move  body: { toFolder } */
 async function moveMessage(req, res) {
   try {
     const { mailboxId, messageId } = req.params;
     const { toFolder } = req.body;
     if (!toFolder) return res.status(400).json({ error: 'toFolder is required.' });
+
+    if (toFolder.toUpperCase() === 'TRASH' || toFolder.toUpperCase() === 'DELETE') {
+      if (!isStrictSuperAdmin(req.user)) {
+        return res.status(403).json({ error: 'Access Denied: Only Super Admin can delete or trash emails.' });
+      }
+    }
 
     const { data: cached } = await supabase
       .from('mailbox_messages')
@@ -490,4 +594,4 @@ async function moveMessage(req, res) {
   }
 }
 
-module.exports = { listMessages, syncFolder, getMessage, updateMessageFlags, moveMessage };
+module.exports = { listMessages, syncFolder, getMessage, updateMessageFlags, moveMessage, syncGmailPastMessagesInternal };

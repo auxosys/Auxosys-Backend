@@ -149,10 +149,22 @@ async function saveDraft(req, res) {
   }
 }
 
+function isStrictSuperAdmin(user) {
+  if (!user) return false;
+  if (user.role === 'Superadmin' || user.user_metadata?.role === 'Superadmin') return true;
+  if (!user.email) return false;
+  const email = user.email.toLowerCase();
+  return email === 'admin@auxosys.com' || email === 'auxosys@gmail.com';
+}
+
 async function deleteDraft(req, res) {
   try {
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: 'Draft ID is required.' });
+
+    if (!isStrictSuperAdmin(req.user)) {
+      return res.status(403).json({ error: 'Access Denied: Only Super Admin can delete emails and drafts.' });
+    }
 
     const { error } = await supabase.from('campaign_logs').delete().eq('id', id);
     if (error) throw error;
