@@ -9,6 +9,9 @@ if (!fs.existsSync("uploads")) {
   fs.mkdirSync("uploads");
 }
 
+const app = express();
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 const newsRoutes = require("./routes/newsRoutes");
 const authRoutes = require("./routes/authRoutes");
 const careerRoutes = require("./routes/careerRoutes");
@@ -27,7 +30,6 @@ const offerLetterRoutes = require("./routes/offerLetterRoutes");
 const clientRoutes = require("./routes/clientRoutes");
 const { requirePermission } = require("./middleware/rbacMiddleware");
 
-const app = express();
 const PORT = process.env.PORT || 5002;
 
 app.use(cors({
@@ -143,6 +145,9 @@ const makeWebhookRouter = require("./routes/webhookRoutes");
 const mailboxRoutes = require("./routes/mailboxes");
 const messageRoutes = require("./routes/messages");
 const supabaseClient = require("./config/supabaseClient");
+const { CampaignQueueWorker } = require("./services/campaignQueue");
+const campaignWorker = new CampaignQueueWorker(supabaseClient);
+campaignWorker.start();
 
 app.use("/api/mailboxes", mailboxRoutes);
 app.use("/api/mailboxes", messageRoutes);

@@ -51,6 +51,7 @@ function makeOutreachRouter(supabase) {
   // Campaigns
   router.get('/campaigns', controller.listCampaigns);
   router.post('/campaigns', controller.createCampaign);
+  router.put('/campaigns/:id', controller.updateCampaign);
   router.post('/campaigns/:id/launch', controller.launchCampaign);
   router.post('/campaigns/:id/pause', controller.pauseCampaign);
   router.delete('/campaigns/:id', controller.deleteCampaign);

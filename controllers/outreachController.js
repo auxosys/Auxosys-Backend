@@ -725,39 +725,82 @@ function makeOutreachController(supabase) {
       }
     },
 
+    async updateCampaign(req, res) {
+      try {
+        const { id } = req.params;
+        const { name, sender_email_id, template_id, list_id, daily_limit, min_delay_sec, max_delay_sec } = req.body;
+        const isUuid = (str) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(str));
+
+        const payload = {};
+        if (name) payload.name = name;
+        if (sender_email_id && isUuid(sender_email_id)) payload.sender_email_id = sender_email_id;
+        if (template_id !== undefined) payload.template_id = isUuid(template_id) ? template_id : null;
+        if (list_id !== undefined) payload.list_id = isUuid(list_id) ? list_id : null;
+        if (daily_limit !== undefined) payload.daily_limit = Number(daily_limit);
+        if (min_delay_sec !== undefined) payload.min_delay_sec = Number(min_delay_sec);
+        if (max_delay_sec !== undefined) payload.max_delay_sec = Number(max_delay_sec);
+
+        const { data: campaign, error } = await supabase
+          .from('campaigns')
+          .update(payload)
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return res.json({ campaign });
+      } catch (err) {
+        return res.status(500).json({ error: err.message });
+      }
+    },
+
     async launchCampaign(req, res) {
       try {
         const { id } = req.params;
-        const { data: campaign } = await supabase.from('campaigns').select('*').eq('id', id).single();
-        if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+        const { data: campaign, error: cErr } = await supabase.from('campaigns').select('*').eq('id', id).single();
+        if (cErr || !campaign) return res.status(404).json({ error: 'Campaign not found' });
 
-        const { data: mapRows } = await supabase.from('contact_list_map').select('contact_id, contacts(*)').eq('list_id', campaign.list_id);
-        const contacts = (mapRows || []).map(m => m.contacts).filter(Boolean);
+        let contacts = [];
+        if (campaign.list_id) {
+          const { data: mapRows } = await supabase.from('contact_list_map').select('contact_id, contacts(*)').eq('list_id', campaign.list_id);
+          contacts = (mapRows || []).map(m => m.contacts).filter(Boolean);
+        }
 
         if (contacts.length === 0) {
-          return res.status(400).json({ error: 'Audience list has no contacts' });
+          const { data: allContacts } = await supabase.from('contacts').select('*');
+          contacts = allContacts || [];
+        }
+
+        if (contacts.length === 0) {
+          return res.status(400).json({ error: 'No contacts found in audience. Please add contacts first.' });
         }
 
         const logEntries = contacts.map(c => ({
           campaign_id: campaign.id,
-          sender_email_id: campaign.sender_email_id,
-          created_by_user_id: campaign.created_by_user_id,
+          sender_email_id: campaign.sender_email_id || campaign.mailbox_id,
+          created_by_user_id: campaign.created_by_user_id || campaign.user_id,
           contact_id: c.id,
           recipient_email: c.email,
           status: 'queued',
         }));
 
-        await supabase.from('campaign_logs').upsert(logEntries, { onConflict: 'campaign_id,recipient_email' });
+        try {
+          await supabase.from('campaign_logs').upsert(logEntries, { onConflict: 'campaign_id,recipient_email' });
+        } catch (logErr) {
+          console.warn('[launchCampaign] Non-fatal upsert log warning:', logErr?.message);
+        }
 
-        const { data: updated } = await supabase
+        const { data: updated, error: uErr } = await supabase
           .from('campaigns')
-          .update({ status: 'sending', total_contacts: contacts.length, updated_at: new Date().toISOString() })
+          .update({ status: 'sending' })
           .eq('id', id)
           .select()
           .single();
 
+        if (uErr) throw uErr;
         return res.json({ campaign: updated, queuedRecipients: contacts.length });
       } catch (err) {
+        console.error('launchCampaign error:', err);
         return res.status(500).json({ error: err.message });
       }
     },
@@ -767,7 +810,7 @@ function makeOutreachController(supabase) {
         const { id } = req.params;
         const { data: updated, error } = await supabase
           .from('campaigns')
-          .update({ status: 'paused', updated_at: new Date().toISOString() })
+          .update({ status: 'paused' })
           .eq('id', id)
           .select()
           .single();

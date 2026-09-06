@@ -56,9 +56,19 @@ class CampaignQueueWorker {
   }
 
   async processSingleCampaign(campaign) {
-    const sender = campaign.sender_emails;
-    if (!sender || sender.status !== 'active') {
-      console.log(`[CampaignQueueWorker] Sender email ${campaign.sender_email_id} inactive. Skipping campaign ${campaign.name}`);
+    let sender = campaign.sender_emails;
+    if (!sender && (campaign.sender_email_id || campaign.mailbox_id)) {
+      const targetSenderId = campaign.sender_email_id || campaign.mailbox_id;
+      const { data: s } = await this.supabase
+        .from('sender_emails')
+        .select('*')
+        .eq('id', targetSenderId)
+        .maybeSingle();
+      sender = s;
+    }
+
+    if (!sender) {
+      console.log(`[CampaignQueueWorker] Sender email not found for campaign "${campaign.name}" (${campaign.sender_email_id}). Skipping.`);
       return;
     }
 
@@ -110,8 +120,35 @@ class CampaignQueueWorker {
     }
 
     const log = logList[0];
-    const contact = log.contacts || {};
-    const template = campaign.templates || {};
+    let contact = log.contacts;
+    if (!contact && log.contact_id) {
+      const { data: c } = await this.supabase
+        .from('contacts')
+        .select('*')
+        .eq('id', log.contact_id)
+        .maybeSingle();
+      contact = c;
+    }
+    if (!contact && log.recipient_email) {
+      const { data: c } = await this.supabase
+        .from('contacts')
+        .select('*')
+        .eq('email', log.recipient_email)
+        .maybeSingle();
+      contact = c;
+    }
+    contact = contact || {};
+
+    let template = campaign.templates;
+    if (!template && campaign.template_id) {
+      const { data: t } = await this.supabase
+        .from('templates')
+        .select('*')
+        .eq('id', campaign.template_id)
+        .maybeSingle();
+      template = t;
+    }
+    template = template || {};
 
     // Check suppression list before sending
     const { data: suppression } = await this.supabase
@@ -145,12 +182,14 @@ class CampaignQueueWorker {
 
       // Dispatch via Brevo Infrastructure
       const brevoRes = await sendEmail({
+        provider: 'brevo',
         senderName: sender.name,
         senderEmail: sender.email,
         recipientEmail: log.recipient_email,
         replyTo: sender.reply_to_email || sender.email,
         subject,
         htmlContent: htmlBody,
+        tags: ['auxosys-outreach-campaign'],
       });
 
       const nowIso = new Date().toISOString();
