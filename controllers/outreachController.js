@@ -679,21 +679,40 @@ function makeOutreachController(supabase) {
         }
 
         const userId = getValidUserId(req);
+        const isUuid = (str) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(str));
+
+        let validSenderUuid = isUuid(sender_email_id) ? sender_email_id : null;
+        if (!validSenderUuid) {
+          const { data: matchedSender } = await supabase
+            .from('sender_emails')
+            .select('id')
+            .or(`brevo_sender_id.eq.${sender_email_id},email.eq.${sender_email_id}`)
+            .limit(1)
+            .maybeSingle();
+
+          if (matchedSender) {
+            validSenderUuid = matchedSender.id;
+          }
+        }
+
+        const mailboxId = validSenderUuid || userId;
+        const validTemplateId = isUuid(template_id) ? template_id : null;
+        const validListId = isUuid(list_id) ? list_id : null;
+
         const { data: campaign, error } = await supabase
           .from('campaigns')
           .insert({
             user_id: userId,
+            mailbox_id: mailboxId,
             created_by_user_id: userId,
             name,
-            sender_email_id,
-            template_id,
-            list_id,
+            sender_email_id: validSenderUuid,
+            template_id: validTemplateId,
+            list_id: validListId,
             status: 'draft',
-            daily_limit,
-            min_delay_sec,
-            max_delay_sec,
-            track_opens,
-            track_clicks,
+            daily_limit: Number(daily_limit) || 100,
+            min_delay_sec: Number(min_delay_sec) || 30,
+            max_delay_sec: Number(max_delay_sec) || 90,
           })
           .select()
           .single();
@@ -701,6 +720,7 @@ function makeOutreachController(supabase) {
         if (error) throw error;
         return res.json({ campaign });
       } catch (err) {
+        console.error('createCampaign error:', err);
         return res.status(500).json({ error: err.message });
       }
     },
