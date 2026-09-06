@@ -52,13 +52,28 @@ exports.changePassword = async (req, res) => {
     const token = authHeader.split(' ')[1];
     const user = await verifyToken(token);
     
-    if (!user || !user.id) {
+    if (!user || !user.id || !user.email) {
       return res.status(401).json({ success: false, message: "Invalid user session or token." });
     }
 
-    const { newPassword } = req.body;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword) {
+      return res.status(400).json({ success: false, message: "Current password is required." });
+    }
+
     if (!newPassword || newPassword.trim().length < 6) {
-      return res.status(400).json({ success: false, message: "Password must be at least 6 characters long." });
+      return res.status(400).json({ success: false, message: "New password must be at least 6 characters long." });
+    }
+
+    // Verify current password against Supabase Auth
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    if (signInError) {
+      return res.status(400).json({ success: false, message: "Current password is incorrect." });
     }
 
     // Update password in Supabase Auth
