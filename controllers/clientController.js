@@ -13,6 +13,16 @@ function isSuperAdmin(req) {
   return req.user.role === "Superadmin" || req.user.email === "auxosys@gmail.com" || req.user.email === "admin@auxosys.com";
 }
 
+function formatClientRecord(c) {
+  if (!c) return c;
+  const meta = c.metadata || {};
+  return {
+    ...c,
+    services: c.services || meta.services || [],
+    customServices: c.customServices || meta.customServices || "",
+  };
+}
+
 exports.listClients = async (req, res) => {
   try {
     const { search, status, archived } = req.query;
@@ -36,17 +46,17 @@ exports.listClients = async (req, res) => {
     
     if (error) throw error;
     
-    let filteredClients = clients;
+    let filteredClients = clients || [];
     if (search) {
       const s = search.toLowerCase();
-      filteredClients = clients.filter(c => 
+      filteredClients = filteredClients.filter(c => 
         (c.companyName && c.companyName.toLowerCase().includes(s)) ||
         (c.contactPerson && c.contactPerson.toLowerCase().includes(s)) ||
         (c.email && c.email.toLowerCase().includes(s))
       );
     }
     
-    res.json(filteredClients);
+    res.json(filteredClients.map(formatClientRecord));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -63,7 +73,7 @@ exports.getClient = async (req, res) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ error: "Not found" });
     
-    res.json(data);
+    res.json(formatClientRecord(data));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -80,8 +90,15 @@ exports.createClient = async (req, res) => {
     const status = req.body.status || DEFAULT_STATUS;
     const actor = getActor(req);
 
+    const metadata = {
+      ...(req.body.metadata || {}),
+      services: req.body.services || [],
+      customServices: req.body.customServices || "",
+    };
+
     const payload = {
       ...req.body,
+      metadata,
       status,
       isArchived: false,
       createdAt: now,
@@ -89,6 +106,8 @@ exports.createClient = async (req, res) => {
       addedBy: actor,
       statusHistory: [{ status, at: now, by: actor, note: "Client created" }]
     };
+    delete payload.services;
+    delete payload.customServices;
     
     const { data, error } = await supabase
       .from("clients")
@@ -97,7 +116,7 @@ exports.createClient = async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.status(201).json(data);
+    res.status(201).json(formatClientRecord(data));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -137,12 +156,22 @@ exports.updateClient = async (req, res) => {
       });
     }
 
+    const metadata = {
+      ...(existing.metadata || {}),
+      ...(patch.metadata || {}),
+      services: patch.services !== undefined ? patch.services : (existing.metadata?.services || existing.services || []),
+      customServices: patch.customServices !== undefined ? patch.customServices : (existing.metadata?.customServices || existing.customServices || ""),
+    };
+
     const updatePayload = {
       ...patch,
+      metadata,
       statusHistory,
       updatedAt: now,
     };
     delete updatePayload.statusNote;
+    delete updatePayload.services;
+    delete updatePayload.customServices;
 
     const { data, error } = await supabase
       .from("clients")
@@ -152,7 +181,7 @@ exports.updateClient = async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.json(data);
+    res.json(formatClientRecord(data));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
