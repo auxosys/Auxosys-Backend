@@ -42,6 +42,7 @@ router.delete("/redirects/:id", seoController.deleteRedirect);
 router.get("/navigation", navigationController.getNavigationLinks);
 router.get("/navigation/schema", navigationController.getNavigationSchema);
 router.post("/navigation", navigationController.upsertNavigationLink);
+router.post("/navigation/sync-sitemap", navigationController.syncNavigationToSitemap);
 router.post("/navigation/reorder", navigationController.reorderNavigationLinks);
 router.delete("/navigation/:id", navigationController.deleteNavigationLink);
 

@@ -33,27 +33,111 @@ exports.getNavigationSchema = async (req, res) => {
     }
 
     const domain = "https://www.auxosys.com";
-    const elements = data.map((item, index) => {
+    const rootItems = data.filter(item => !item.parent_id);
+    const getChildren = (parentId) => data.filter(item => item.parent_id === parentId);
+
+    const siteNavigationElements = rootItems.map((item, index) => {
       let fullUrl = item.url || "/";
       if (!fullUrl.startsWith("http")) {
         fullUrl = `${domain}${fullUrl.startsWith("/") ? fullUrl : "/" + fullUrl}`;
       }
-      return {
+
+      const element = {
         "@type": "SiteNavigationElement",
+        "@id": `${fullUrl}#nav-${item.id}`,
         "position": index + 1,
         "name": item.title || item.label || "Link",
         "description": item.description || null,
         "url": fullUrl
       };
+
+      const children = getChildren(item.id);
+      if (children.length > 0) {
+        element.hasPart = children.map(child => {
+          let childUrl = child.url || "/";
+          if (!childUrl.startsWith("http")) {
+            childUrl = `${domain}${childUrl.startsWith("/") ? childUrl : "/" + childUrl}`;
+          }
+          return {
+            "@type": "SiteNavigationElement",
+            "name": child.title || child.label || "Link",
+            "description": child.description || null,
+            "url": childUrl
+          };
+        });
+      }
+
+      return element;
     });
 
     const schema = {
       "@context": "https://schema.org",
       "@type": "ItemList",
-      "itemListElement": elements
+      "itemListElement": siteNavigationElements,
+      "siteNavigationElements": siteNavigationElements
     };
 
     res.status(200).json({ success: true, data: schema });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.syncNavigationToSitemap = async (req, res) => {
+  try {
+    const { data: navItems, error: navErr } = await supabase
+      .from("seo_navigation")
+      .select("*")
+      .eq("menu_type", "header");
+
+    if (navErr) throw navErr;
+
+    const crypto = require("crypto");
+    const domain = "https://www.auxosys.com";
+    const synced = [];
+
+    for (const item of navItems || []) {
+      if (!item.url || item.url === '#') continue;
+      let fullUrl = item.url;
+      if (!fullUrl.startsWith("http")) {
+        fullUrl = `${domain}${fullUrl.startsWith("/") ? fullUrl : "/" + fullUrl}`;
+      }
+
+      const priority = item.parent_id ? 0.8 : 0.9;
+      const sitemapPayload = {
+        id: crypto.randomUUID(),
+        url: fullUrl,
+        priority,
+        changefreq: 'weekly',
+        status: true,
+        updated_at: new Date()
+      };
+
+      // Check existing by URL
+      const { data: existing } = await supabase
+        .from("seo_sitemap_links")
+        .select("id")
+        .eq("url", fullUrl)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("seo_sitemap_links")
+          .update({ priority, changefreq: 'weekly', status: true, updated_at: new Date() })
+          .eq("id", existing.id);
+      } else {
+        await supabase
+          .from("seo_sitemap_links")
+          .insert([sitemapPayload]);
+      }
+      synced.push(fullUrl);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully synced ${synced.length} navigation links to sitemap.xml`,
+      synced
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
