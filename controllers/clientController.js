@@ -15,12 +15,43 @@ function isSuperAdmin(req) {
 
 function formatClientRecord(c) {
   if (!c) return c;
-  const meta = c.metadata || {};
+  let text = c.notes || "";
+  let services = [];
+  let customServices = "";
+
+  if (typeof text === "string" && text.startsWith("{") && text.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && (parsed.services || parsed.customServices !== undefined || parsed.text !== undefined)) {
+        text = parsed.text || "";
+        services = parsed.services || [];
+        customServices = parsed.customServices || "";
+      }
+    } catch (e) {}
+  }
+
   return {
     ...c,
-    services: c.services || meta.services || [],
-    customServices: c.customServices || meta.customServices || "",
+    notes: text,
+    services: c.services || services,
+    customServices: c.customServices || customServices,
   };
+}
+
+function encodeNotes(userNotes = "", services = [], customServices = "") {
+  const textStr = String(userNotes || "").trim();
+  const srvList = Array.isArray(services) ? services : [];
+  const customStr = String(customServices || "").trim();
+
+  if (srvList.length === 0 && !customStr) {
+    return textStr;
+  }
+
+  return JSON.stringify({
+    text: textStr,
+    services: srvList,
+    customServices: customStr
+  });
 }
 
 exports.listClients = async (req, res) => {
@@ -90,15 +121,11 @@ exports.createClient = async (req, res) => {
     const status = req.body.status || DEFAULT_STATUS;
     const actor = getActor(req);
 
-    const metadata = {
-      ...(req.body.metadata || {}),
-      services: req.body.services || [],
-      customServices: req.body.customServices || "",
-    };
+    const encodedNotes = encodeNotes(req.body.notes, req.body.services, req.body.customServices);
 
     const payload = {
       ...req.body,
-      metadata,
+      notes: encodedNotes,
       status,
       isArchived: false,
       createdAt: now,
@@ -115,7 +142,10 @@ exports.createClient = async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Create Client Error:", error);
+      throw error;
+    }
     res.status(201).json(formatClientRecord(data));
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -156,16 +186,16 @@ exports.updateClient = async (req, res) => {
       });
     }
 
-    const metadata = {
-      ...(existing.metadata || {}),
-      ...(patch.metadata || {}),
-      services: patch.services !== undefined ? patch.services : (existing.metadata?.services || existing.services || []),
-      customServices: patch.customServices !== undefined ? patch.customServices : (existing.metadata?.customServices || existing.customServices || ""),
-    };
+    const existingFormatted = formatClientRecord(existing);
+    const updatedNotesText = patch.notes !== undefined ? patch.notes : existingFormatted.notes;
+    const updatedServices = patch.services !== undefined ? patch.services : existingFormatted.services;
+    const updatedCustomServices = patch.customServices !== undefined ? patch.customServices : existingFormatted.customServices;
+
+    const encodedNotes = encodeNotes(updatedNotesText, updatedServices, updatedCustomServices);
 
     const updatePayload = {
       ...patch,
-      metadata,
+      notes: encodedNotes,
       statusHistory,
       updatedAt: now,
     };
@@ -180,7 +210,10 @@ exports.updateClient = async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Update Client Error:", error);
+      throw error;
+    }
     res.json(formatClientRecord(data));
   } catch (error) {
     res.status(500).json({ error: error.message });
