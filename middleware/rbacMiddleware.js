@@ -42,7 +42,19 @@ exports.requirePermission = async (req, res, next) => {
     const user = await verifyToken(token);
 
     // Superadmin bypass
-    if (user.email === "auxosys@gmail.com" || user.email === "admin@auxosys.com") {
+    const userRole = user.role || user.user_metadata?.role;
+    const isSuperAdmin = 
+      user.email === "auxosys@gmail.com" || 
+      user.email === "admin@auxosys.com" || 
+      (typeof userRole === "string" && userRole.toLowerCase() === "superadmin");
+
+    if (isSuperAdmin) {
+      req.user = user;
+      return next();
+    }
+
+    // Allow any authenticated user to change their own password
+    if (baseUrl === "/settings" && (path === "/change-password" || path === "/change-password/")) {
       req.user = user;
       return next();
     }
