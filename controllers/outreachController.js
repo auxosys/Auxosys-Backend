@@ -532,7 +532,13 @@ function makeOutreachController(supabase) {
         const { name, description } = req.body;
         if (!name) return res.status(400).json({ error: 'List name is required' });
 
-        const { data: list, error } = await supabase.from('mail_lists').insert({ name, description }).select().single();
+        const userId = getValidUserId(req);
+        const { data: list, error } = await supabase
+          .from('mail_lists')
+          .insert({ user_id: userId, name, description })
+          .select()
+          .single();
+
         if (error) throw error;
         return res.json({ list });
       } catch (err) {
@@ -571,7 +577,13 @@ function makeOutreachController(supabase) {
           return res.status(400).json({ error: 'Name, subject, and body_html are required' });
         }
 
-        const { data: template, error } = await supabase.from('templates').insert({ name, subject, body_html, body_text }).select().single();
+        const userId = getValidUserId(req);
+        const { data: template, error } = await supabase
+          .from('templates')
+          .insert({ user_id: userId, name, subject, body_html, body_text })
+          .select()
+          .single();
+
         if (error) throw error;
         return res.json({ template });
       } catch (err) {
@@ -666,9 +678,12 @@ function makeOutreachController(supabase) {
           }
         }
 
+        const userId = getValidUserId(req);
         const { data: campaign, error } = await supabase
           .from('campaigns')
           .insert({
+            user_id: userId,
+            created_by_user_id: userId,
             name,
             sender_email_id,
             template_id,
@@ -679,7 +694,6 @@ function makeOutreachController(supabase) {
             max_delay_sec,
             track_opens,
             track_clicks,
-            created_by_user_id: user?.id || null,
           })
           .select()
           .single();
