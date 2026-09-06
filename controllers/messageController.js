@@ -52,6 +52,16 @@ async function listMessages(req, res) {
     }
 
     // Fallback / Outreach Integration: Serve messages from campaign_logs & sender_emails
+    // Automatically sync from real Gmail IMAP if table is currently empty
+    const { count: logCheckCount } = await supabase.from('campaign_logs').select('id', { count: 'exact', head: true });
+    if (!logCheckCount || logCheckCount === 0) {
+      try {
+        await syncGmailPastMessagesInternal(supabase, 50);
+      } catch (sErr) {
+        console.warn('Auto Gmail sync warning:', sErr.message);
+      }
+    }
+
     let query = supabase
       .from('campaign_logs')
       .select('*, sender_emails(id, email, name)', { count: 'exact' });
