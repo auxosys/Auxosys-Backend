@@ -18,14 +18,18 @@ function formatClientRecord(c) {
   let text = c.notes || "";
   let services = [];
   let customServices = "";
+  let sortOrder = c.sortOrder !== undefined ? c.sortOrder : 999999;
 
   if (typeof text === "string" && text.startsWith("{") && text.endsWith("}")) {
     try {
       const parsed = JSON.parse(text);
-      if (parsed && (parsed.services || parsed.customServices !== undefined || parsed.text !== undefined)) {
+      if (parsed) {
         text = parsed.text || "";
         services = parsed.services || [];
         customServices = parsed.customServices || "";
+        if (parsed.sortOrder !== undefined) {
+          sortOrder = parsed.sortOrder;
+        }
       }
     } catch (e) {}
   }
@@ -35,23 +39,29 @@ function formatClientRecord(c) {
     notes: text,
     services: c.services || services,
     customServices: c.customServices || customServices,
+    sortOrder,
   };
 }
 
-function encodeNotes(userNotes = "", services = [], customServices = "") {
+function encodeNotes(userNotes = "", services = [], customServices = "", sortOrder) {
   const textStr = String(userNotes || "").trim();
   const srvList = Array.isArray(services) ? services : [];
   const customStr = String(customServices || "").trim();
 
-  if (srvList.length === 0 && !customStr) {
+  if (srvList.length === 0 && !customStr && sortOrder === undefined) {
     return textStr;
   }
 
-  return JSON.stringify({
+  const payload = {
     text: textStr,
     services: srvList,
     customServices: customStr
-  });
+  };
+  if (sortOrder !== undefined) {
+    payload.sortOrder = sortOrder;
+  }
+
+  return JSON.stringify(payload);
 }
 
 exports.listClients = async (req, res) => {
@@ -73,21 +83,64 @@ exports.listClients = async (req, res) => {
       query = query.eq("isArchived", false);
     }
     
-    const { data: clients, error } = await query.order("updatedAt", { ascending: false });
+    // Chronological order by creation: First created, First showing (createdAt ASC)
+    const { data: clients, error } = await query.order("createdAt", { ascending: true });
     
     if (error) throw error;
     
-    let filteredClients = clients || [];
+    let formatted = (clients || []).map(formatClientRecord);
+
+    // Sort by custom drag-and-drop sortOrder if present, falling back to createdAt ascending
+    formatted.sort((a, b) => {
+      const orderA = a.sortOrder !== undefined ? a.sortOrder : 999999;
+      const orderB = b.sortOrder !== undefined ? b.sortOrder : 999999;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+    });
+
     if (search) {
       const s = search.toLowerCase();
-      filteredClients = filteredClients.filter(c => 
+      formatted = formatted.filter(c => 
         (c.companyName && c.companyName.toLowerCase().includes(s)) ||
         (c.contactPerson && c.contactPerson.toLowerCase().includes(s)) ||
         (c.email && c.email.toLowerCase().includes(s))
       );
     }
     
-    res.json(filteredClients.map(formatClientRecord));
+    res.json(formatted);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.reorderClients = async (req, res) => {
+  try {
+    const { orderedIds } = req.body;
+    if (!Array.isArray(orderedIds)) {
+      return res.status(400).json({ error: "orderedIds array is required" });
+    }
+
+    for (let index = 0; index < orderedIds.length; index++) {
+      const id = orderedIds[index];
+      const { data: existing } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (existing) {
+        const formatted = formatClientRecord(existing);
+        const newNotes = encodeNotes(formatted.notes, formatted.services, formatted.customServices, index);
+        await supabase
+          .from("clients")
+          .update({ notes: newNotes, updatedAt: new Date().toISOString() })
+          .eq("id", id);
+      }
+    }
+
+    res.json({ success: true, message: "Clients reordered successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
