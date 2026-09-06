@@ -7,6 +7,24 @@
 
 const { fetchBrevoSenders, sendEmail } = require('../services/brevoService');
 
+function formatContactRecord(c) {
+  if (!c) return c;
+  const attrs = c.custom_attributes || {};
+  return {
+    ...c,
+    job_title: c.job_title || attrs.job_title || "",
+    phone: c.phone || attrs.phone || "",
+  };
+}
+
+function getValidUserId(req) {
+  const isUuid = (str) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(str));
+  if (req?.user && isUuid(req.user.id)) return req.user.id;
+  if (req?.user && isUuid(req.user._id)) return req.user._id;
+  if (req?.user?.user_metadata && isUuid(req.user.user_metadata.id)) return req.user.user_metadata.id;
+  return "00000000-0000-0000-0000-000000000000";
+}
+
 function getDepartmentForEmail(email) {
   if (!email) return 'General';
   const e = email.toLowerCase();
@@ -288,7 +306,7 @@ function makeOutreachController(supabase) {
         const { data: contacts, count, error } = await query;
         if (error) throw error;
 
-        let filtered = contacts || [];
+        let filtered = (contacts || []).map(formatContactRecord);
         if (list_id) {
           filtered = filtered.filter(c => c.contact_list_map?.some(m => m.list_id === list_id));
         }
@@ -304,21 +322,58 @@ function makeOutreachController(supabase) {
         const { email, first_name, last_name, company, job_title, phone, list_ids } = req.body;
         if (!email) return res.status(400).json({ error: 'Email address is required' });
 
-        const { data: contact, error } = await supabase
-          .from('contacts')
-          .upsert({ email, first_name, last_name, company, job_title, phone }, { onConflict: 'user_id,email' })
-          .select()
-          .single();
+        const userId = getValidUserId(req);
+        const cleanEmail = email.trim().toLowerCase();
 
-        if (error) throw error;
+        const custom_attributes = {
+          ...(req.body.custom_attributes || {}),
+          ...(job_title ? { job_title } : {}),
+          ...(phone ? { phone } : {}),
+        };
+
+        const payload = {
+          user_id: userId,
+          email: cleanEmail,
+          first_name: first_name || null,
+          last_name: last_name || null,
+          company: company || null,
+          custom_attributes,
+        };
+
+        let contact;
+        const { data: existing } = await supabase
+          .from('contacts')
+          .select('*')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+
+        if (existing) {
+          const { data: updated, error: uErr } = await supabase
+            .from('contacts')
+            .update(payload)
+            .eq('id', existing.id)
+            .select()
+            .single();
+          if (uErr) throw uErr;
+          contact = updated;
+        } else {
+          const { data: inserted, error: iErr } = await supabase
+            .from('contacts')
+            .insert([payload])
+            .select()
+            .single();
+          if (iErr) throw iErr;
+          contact = inserted;
+        }
 
         if (list_ids && Array.isArray(list_ids) && list_ids.length > 0) {
           const maps = list_ids.map(lId => ({ contact_id: contact.id, list_id: lId }));
           await supabase.from('contact_list_map').upsert(maps, { onConflict: 'contact_id,list_id' });
         }
 
-        return res.json({ contact });
+        return res.json({ contact: formatContactRecord(contact) });
       } catch (err) {
+        console.error('createContact error:', err);
         return res.status(500).json({ error: err.message });
       }
     },
@@ -327,15 +382,38 @@ function makeOutreachController(supabase) {
       try {
         const { id } = req.params;
         const { email, first_name, last_name, company, job_title, phone } = req.body;
+
+        const { data: existing } = await supabase
+          .from('contacts')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+
+        const existingAttrs = existing?.custom_attributes || {};
+        const custom_attributes = {
+          ...existingAttrs,
+          ...(req.body.custom_attributes || {}),
+          ...(job_title !== undefined ? { job_title } : {}),
+          ...(phone !== undefined ? { phone } : {}),
+        };
+
+        const payload = {
+          email: email ? email.trim().toLowerCase() : undefined,
+          first_name,
+          last_name,
+          company,
+          custom_attributes,
+        };
+
         const { data: contact, error } = await supabase
           .from('contacts')
-          .update({ email, first_name, last_name, company, job_title, phone, updated_at: new Date().toISOString() })
+          .update(payload)
           .eq('id', id)
           .select()
           .single();
 
         if (error) throw error;
-        return res.json({ contact });
+        return res.json({ contact: formatContactRecord(contact) });
       } catch (err) {
         return res.status(500).json({ error: err.message });
       }
@@ -348,21 +426,63 @@ function makeOutreachController(supabase) {
           return res.status(400).json({ error: 'Contacts array is empty' });
         }
 
-        const validContacts = contacts.filter(c => c.email && c.email.includes('@'));
-        const { data: savedContacts, error } = await supabase
-          .from('contacts')
-          .upsert(validContacts, { onConflict: 'user_id,email' })
-          .select();
+        const userId = getValidUserId(req);
+        const validContacts = contacts
+          .filter(c => c.email && c.email.includes('@'))
+          .map(c => {
+            const cleanEmail = c.email.trim().toLowerCase();
+            const jobTitle = c.job_title || c.jobTitle || '';
+            const phoneStr = c.phone || '';
+            return {
+              user_id: userId,
+              email: cleanEmail,
+              first_name: c.first_name || c.firstName || null,
+              last_name: c.last_name || c.lastName || null,
+              company: c.company || null,
+              custom_attributes: {
+                ...(jobTitle ? { job_title: jobTitle } : {}),
+                ...(phoneStr ? { phone: phoneStr } : {}),
+              },
+            };
+          });
 
-        if (error) throw error;
+        const savedContacts = [];
+        for (const cPayload of validContacts) {
+          const { data: existing } = await supabase
+            .from('contacts')
+            .select('*')
+            .eq('email', cPayload.email)
+            .maybeSingle();
 
-        if (list_id && savedContacts) {
+          let savedRecord;
+          if (existing) {
+            const { data: updated } = await supabase
+              .from('contacts')
+              .update(cPayload)
+              .eq('id', existing.id)
+              .select()
+              .single();
+            savedRecord = updated;
+          } else {
+            const { data: inserted } = await supabase
+              .from('contacts')
+              .insert([cPayload])
+              .select()
+              .single();
+            savedRecord = inserted;
+          }
+          if (savedRecord) savedContacts.push(savedRecord);
+        }
+
+        if (list_id && savedContacts.length > 0) {
           const maps = savedContacts.map(c => ({ contact_id: c.id, list_id }));
           await supabase.from('contact_list_map').upsert(maps, { onConflict: 'contact_id,list_id' });
         }
 
-        return res.json({ importedCount: savedContacts?.length || 0, contacts: savedContacts });
+        const formattedContacts = savedContacts.map(formatContactRecord);
+        return res.json({ importedCount: formattedContacts.length, contacts: formattedContacts });
       } catch (err) {
+        console.error('importContactsCsv error:', err);
         return res.status(500).json({ error: err.message });
       }
     },
