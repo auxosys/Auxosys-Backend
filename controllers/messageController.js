@@ -88,8 +88,8 @@ async function listMessages(req, res) {
       // Show replies received from contacts or test responses
       query = query.or('replied_at.not.is.null,status.eq.replied');
     } else if (normFolder === 'SENT') {
-      // Outbound emails sent via Brevo / Compose
-      query = query.in('status', ['sent', 'delivered', 'opened', 'clicked', 'replied']);
+      // Outbound emails sent via Brevo / Compose ONLY (exclude incoming emails with status='replied')
+      query = query.in('status', ['sent', 'delivered', 'opened', 'clicked', 'sending']).neq('status', 'replied');
     } else if (normFolder === 'DRAFTS' || normFolder === 'STARRED' || normFolder === 'TRASH') {
       let draftQuery = supabase
         .from('campaign_logs')
@@ -167,12 +167,14 @@ async function listMessages(req, res) {
     const { data: logs, count: logCount } = await query;
 
     const formattedMessages = (logs || []).map(l => {
-      const isInbox = folder === 'INBOX';
-      
       let meta = {};
       if (l.error_message && l.error_message.startsWith('{')) {
         try { meta = JSON.parse(l.error_message); } catch (e) {}
       }
+
+      // Check if message is an incoming email (synced from Gmail inbox or received reply)
+      const isIncoming = l.status === 'replied' || (!!meta.from_address && meta.from_address !== l.sender_emails?.email);
+      const isInbox = folder === 'INBOX' || isIncoming;
 
       const msgSubject = meta.subject || l.subject || (isInbox ? `Re: Auxosys Services` : `Outreach Message`);
       const msgBodyText = meta.body_text || meta.text || (isInbox
@@ -192,8 +194,7 @@ async function listMessages(req, res) {
       return {
         id: l.id,
         mailbox_id: mailboxId,
-        folder: folder,
-        uid: l.id,
+        folder: isInbox ? 'INBOX' : folder,
         status: isInbox ? (l.status === 'replied_by_admin' ? 'replied' : 'received') : l.status,
         message_id: l.brevo_message_id || l.id,
         from_name: fromName,
