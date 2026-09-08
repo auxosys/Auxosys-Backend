@@ -240,15 +240,8 @@ exports.applyForJob = async (req, res) => {
     const { data, error } = await supabase.from("applications").insert([payload]).select();
     if (error) throw error;
     
-    // Send email notification to Admin asynchronously
     const emailService = require("../utils/emailService");
-    emailService.sendJobApplicationNotificationToAdmin({
-      firstName: filteredBody.firstName,
-      lastName: filteredBody.lastName,
-      email: filteredBody.email,
-      phone: filteredBody.phone,
-      appliedRole: dbJob.title || "Auxosys Careers"
-    });
+
 
     // Send confirmation email to candidate
     emailService.sendApplicationReceivedEmailToCandidate({
