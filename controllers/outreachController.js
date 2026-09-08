@@ -41,27 +41,28 @@ function getDepartmentForEmail(email) {
 
 async function syncBrevoSendersInternal(supabase) {
   try {
-    let brevoSenders = await fetchBrevoSenders();
+    const brevoSenders = await fetchBrevoSenders();
 
-    const defaultSenders = [
-      { id: '1', name: 'Privacy Auxosys', email: 'privacy@auxosys.com', active: true, dept: 'Privacy & Compliance' },
-      { id: '2', name: 'Support Auxosys', email: 'support@auxosys.com', active: true, dept: 'Customer Support' },
-      { id: '3', name: 'Auxosys HR Team', email: 'hr@auxosys.com', active: true, dept: 'Human Resources' },
-      { id: '4', name: 'Auxosys Contact', email: 'contact@auxosys.com', active: true, dept: 'General Contact' },
-      { id: '5', name: 'Auxosys Notifications', email: 'noreply@auxosys.com', active: true, dept: 'Automated Notifications' },
-      { id: '6', name: 'Talent Acquisition Auxosys', email: 'careers@auxosys.com', active: true, dept: 'HR / Recruitment' },
-      { id: '7', name: 'Auxosys Main', email: 'auxosys@gmail.com', active: true, dept: 'General Enquiries' },
-      { id: '8', name: 'Auxosys General', email: 'hello@auxosys.com', active: true, dept: 'General Enquiries' },
-      { id: '9', name: 'Auxosys Sales', email: 'sales@auxosys.com', active: true, dept: 'Sales & Business' },
-    ];
+    if (!brevoSenders || !Array.isArray(brevoSenders) || brevoSenders.length === 0) {
+      console.warn('[SyncBrevo] No senders returned from Brevo API');
+      return { synced: 0, inserted: 0, total: 0 };
+    }
 
-    if (!brevoSenders || brevoSenders.length === 0) {
-      brevoSenders = defaultSenders;
-    } else {
-      const existingEmails = new Set(brevoSenders.map(s => s.email?.toLowerCase()));
-      for (const ds of defaultSenders) {
-        if (!existingEmails.has(ds.email.toLowerCase())) {
-          brevoSenders.push(ds);
+    const brevoEmails = new Set(brevoSenders.map(s => (s.email || '').toLowerCase().trim()).filter(Boolean));
+
+    // Any senders in the database that are NOT in Brevo should have is_verified: false
+    const { data: currentSenders } = await supabase
+      .from('sender_emails')
+      .select('id, email, is_verified');
+
+    if (currentSenders) {
+      for (const s of currentSenders) {
+        const eLower = (s.email || '').toLowerCase().trim();
+        if (!brevoEmails.has(eLower) && s.is_verified) {
+          await supabase
+            .from('sender_emails')
+            .update({ is_verified: false, updated_at: new Date().toISOString() })
+            .eq('id', s.id);
         }
       }
     }
@@ -1006,4 +1007,4 @@ function makeOutreachController(supabase) {
   };
 }
 
-module.exports = { makeOutreachController };
+module.exports = { makeOutreachController, syncBrevoSendersInternal };

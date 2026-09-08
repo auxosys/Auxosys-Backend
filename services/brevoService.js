@@ -15,10 +15,54 @@ function getApiKey() {
   return process.env.BREVO_API_KEY;
 }
 
+function prepareEmailHtml(rawHtml, rawText) {
+  if (!rawHtml || !rawHtml.trim()) {
+    if (!rawText || !rawText.trim()) return '<p></p>';
+    const escaped = String(rawText)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/\n/g, '<br>');
+    rawHtml = `<div>${escaped}</div>`;
+  }
+
+  // If already wrapped in a complete HTML document, preserve it
+  if (/<html[\s>]/i.test(rawHtml) || /<!DOCTYPE/i.test(rawHtml)) {
+    return rawHtml;
+  }
+
+  // Ensure highlight styling has inline padding and rounded edges for high-fidelity rendering across all email clients
+  const enhancedHtml = rawHtml.replace(/style="([^"]*background-color:[^"]*)"/gi, (match, styleContent) => {
+    let newStyle = styleContent;
+    if (!/padding\s*:/i.test(newStyle)) {
+      newStyle += '; padding: 1px 4px;';
+    }
+    if (!/border-radius\s*:/i.test(newStyle)) {
+      newStyle += '; border-radius: 3px;';
+    }
+    return `style="${newStyle}"`;
+  });
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.65; color: #1e293b; background-color: #ffffff;">
+  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.65; color: #1e293b;">
+    ${enhancedHtml}
+  </div>
+</body>
+</html>`;
+}
+
 /**
  * Sends a transactional or outreach email via Gmail Direct SMTP (0 Brevo limit used) or Brevo API / SMTP.
  */
 async function sendEmail({ senderName, senderEmail, recipientEmail, subject, htmlContent, textContent, replyTo, tags, attachments, provider, smtpUser, smtpPass }) {
+  const finalHtml = prepareEmailHtml(htmlContent, textContent);
   const targetProvider = (provider || '').toLowerCase();
   const gmailPass = smtpPass || process.env.GMAIL_APP_PASSWORD;
   const gmailUser = smtpUser || process.env.GMAIL_SMTP_USER || 'auxosys@gmail.com';
@@ -48,7 +92,7 @@ async function sendEmail({ senderName, senderEmail, recipientEmail, subject, htm
         to: recipientEmail,
         replyTo: replyTo || senderEmail,
         subject: subject,
-        html: htmlContent,
+        html: finalHtml,
         text: textContent,
         attachments: nodemailerAttachments.length > 0 ? nodemailerAttachments : undefined,
       });
@@ -74,7 +118,7 @@ async function sendEmail({ senderName, senderEmail, recipientEmail, subject, htm
         to: [{ email: recipientEmail }],
         replyTo: replyTo ? { email: replyTo } : { email: senderEmail },
         subject: subject,
-        htmlContent: htmlContent,
+        htmlContent: finalHtml,
         textContent: textContent || undefined,
         tags: tags || ['auxosys-outreach'],
       };
@@ -113,7 +157,7 @@ async function sendEmail({ senderName, senderEmail, recipientEmail, subject, htm
   });
 
   const nodemailerAttachments = (attachments || []).map(a => ({
-    filename: a.name || 'attachment',
+    filename: a.name || a.filename || 'attachment',
     content: typeof a.content === 'string' ? Buffer.from(a.content, 'base64') : a.content,
     contentType: a.contentType || undefined,
   }));
@@ -123,7 +167,7 @@ async function sendEmail({ senderName, senderEmail, recipientEmail, subject, htm
     to: recipientEmail,
     replyTo: replyTo || senderEmail,
     subject: subject,
-    html: htmlContent,
+    html: finalHtml,
     text: textContent,
     attachments: nodemailerAttachments.length > 0 ? nodemailerAttachments : undefined,
   });
