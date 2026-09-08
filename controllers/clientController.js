@@ -1,4 +1,4 @@
-const supabase = require("../config/supabaseClient");
+const googleSheetsService = require("../services/googleSheetsService");
 const { validateClient, DEFAULT_STATUS } = require("../utils/clientModel");
 
 function getActor(req) {
@@ -13,156 +13,59 @@ function isSuperAdmin(req) {
   return req.user.role === "Superadmin" || req.user.email === "auxosys@gmail.com" || req.user.email === "admin@auxosys.com";
 }
 
-function formatClientRecord(c) {
-  if (!c) return c;
-  let text = c.notes || "";
-  let services = [];
-  let customServices = "";
-  let sortOrder = c.sortOrder !== undefined ? c.sortOrder : 999999;
-
-  if (typeof text === "string" && text.startsWith("{") && text.endsWith("}")) {
-    try {
-      const parsed = JSON.parse(text);
-      if (parsed) {
-        text = parsed.text || "";
-        services = parsed.services || [];
-        customServices = parsed.customServices || "";
-        if (parsed.sortOrder !== undefined) {
-          sortOrder = parsed.sortOrder;
-        }
-      }
-    } catch (e) {}
-  }
-
-  return {
-    ...c,
-    notes: text,
-    services: c.services || services,
-    customServices: c.customServices || customServices,
-    sortOrder,
-  };
-}
-
-function encodeNotes(userNotes = "", services = [], customServices = "", sortOrder) {
-  const textStr = String(userNotes || "").trim();
-  const srvList = Array.isArray(services) ? services : [];
-  const customStr = String(customServices || "").trim();
-
-  if (srvList.length === 0 && !customStr && sortOrder === undefined) {
-    return textStr;
-  }
-
-  const payload = {
-    text: textStr,
-    services: srvList,
-    customServices: customStr
-  };
-  if (sortOrder !== undefined) {
-    payload.sortOrder = sortOrder;
-  }
-
-  return JSON.stringify(payload);
-}
-
+/**
+ * List clients directly from the connected Google Sheet
+ */
 exports.listClients = async (req, res) => {
   try {
     const { search, status, archived } = req.query;
-    
-    let query = supabase.from("clients").select("*");
-    
-    if (status) {
-      query = query.eq("status", status);
-    }
-    
-    if (archived === "true") {
-      if (!isSuperAdmin(req)) {
-        return res.status(403).json({ error: "Access Denied: Only Super Admin can view archived clients." });
-      }
-      query = query.eq("isArchived", true);
-    } else if (archived === "false") {
-      query = query.eq("isArchived", false);
-    }
-    
-    // Chronological order by creation: First created, First showing (createdAt ASC)
-    const { data: clients, error } = await query.order("createdAt", { ascending: true });
-    
-    if (error) throw error;
-    
-    let formatted = (clients || []).map(formatClientRecord);
-
-    // Sort by custom drag-and-drop sortOrder if present, falling back to createdAt ascending
-    formatted.sort((a, b) => {
-      const orderA = a.sortOrder !== undefined ? a.sortOrder : 999999;
-      const orderB = b.sortOrder !== undefined ? b.sortOrder : 999999;
-      if (orderA !== orderB) {
-        return orderA - orderB;
-      }
-      return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+    const clients = await googleSheetsService.listClients({
+      search,
+      status,
+      archived,
+      isSuperAdmin: isSuperAdmin(req),
     });
-
-    if (search) {
-      const s = search.toLowerCase();
-      formatted = formatted.filter(c => 
-        (c.companyName && c.companyName.toLowerCase().includes(s)) ||
-        (c.contactPerson && c.contactPerson.toLowerCase().includes(s)) ||
-        (c.email && c.email.toLowerCase().includes(s))
-      );
-    }
-    
-    res.json(formatted);
+    res.json(clients);
   } catch (error) {
+    console.error("List Clients Error (Google Sheets):", error);
     res.status(500).json({ error: error.message });
   }
 };
 
+/**
+ * Reorder clients list (updates custom sortOrder in Google Sheet)
+ */
 exports.reorderClients = async (req, res) => {
   try {
     const { orderedIds } = req.body;
     if (!Array.isArray(orderedIds)) {
       return res.status(400).json({ error: "orderedIds array is required" });
     }
-
-    for (let index = 0; index < orderedIds.length; index++) {
-      const id = orderedIds[index];
-      const { data: existing } = await supabase
-        .from("clients")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (existing) {
-        const formatted = formatClientRecord(existing);
-        const newNotes = encodeNotes(formatted.notes, formatted.services, formatted.customServices, index);
-        await supabase
-          .from("clients")
-          .update({ notes: newNotes, updatedAt: new Date().toISOString() })
-          .eq("id", id);
-      }
-    }
-
+    await googleSheetsService.reorderClients(orderedIds);
     res.json({ success: true, message: "Clients reordered successfully" });
   } catch (error) {
+    console.error("Reorder Clients Error (Google Sheets):", error);
     res.status(500).json({ error: error.message });
   }
 };
 
+/**
+ * Get single client by ID from Google Sheet
+ */
 exports.getClient = async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from("clients")
-      .select("*")
-      .eq("id", req.params.id)
-      .single();
-      
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: "Not found" });
-    
-    res.json(formatClientRecord(data));
+    const client = await googleSheetsService.getClient(req.params.id);
+    if (!client) return res.status(404).json({ error: "Not found" });
+    res.json(client);
   } catch (error) {
+    console.error("Get Client Error (Google Sheets):", error);
     res.status(500).json({ error: error.message });
   }
 };
 
+/**
+ * Create a new client (appends row to Google Sheet)
+ */
 exports.createClient = async (req, res) => {
   try {
     const errors = validateClient(req.body);
@@ -170,161 +73,82 @@ exports.createClient = async (req, res) => {
       return res.status(400).json({ error: "Validation failed", details: errors });
     }
 
-    const now = new Date().toISOString();
-    const status = req.body.status || DEFAULT_STATUS;
     const actor = getActor(req);
-
-    const encodedNotes = encodeNotes(req.body.notes, req.body.services, req.body.customServices);
-
-    const payload = {
-      ...req.body,
-      notes: encodedNotes,
-      status,
-      isArchived: false,
-      createdAt: now,
-      updatedAt: now,
-      addedBy: actor,
-      statusHistory: [{ status, at: now, by: actor, note: "Client created" }]
-    };
-    delete payload.services;
-    delete payload.customServices;
-    
-    const { data, error } = await supabase
-      .from("clients")
-      .insert([payload])
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Create Client Error:", error);
-      throw error;
-    }
-    res.status(201).json(formatClientRecord(data));
+    const newClient = await googleSheetsService.createClient(req.body, actor);
+    res.status(201).json(newClient);
   } catch (error) {
+    console.error("Create Client Error (Google Sheets):", error);
     res.status(500).json({ error: error.message });
   }
 };
 
+/**
+ * Update an existing client by ID in Google Sheet
+ */
 exports.updateClient = async (req, res) => {
   try {
     const { id } = req.params;
     const patch = req.body;
     const actor = getActor(req);
-    const now = new Date().toISOString();
 
-    const { data: existing, error: fetchError } = await supabase
-      .from("clients")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (fetchError || !existing) {
-      return res.status(404).json({ error: "Not found" });
-    }
-
-    // Merge for validation
-    const merged = { ...existing, ...patch };
-    const errors = validateClient(merged);
-    if (Object.keys(errors).length > 0) {
-      return res.status(400).json({ error: "Validation failed", details: errors });
-    }
-
-    let statusHistory = existing.statusHistory || [];
-    if (patch.status && patch.status !== existing.status) {
-      statusHistory.push({
-        status: patch.status,
-        at: now,
-        by: actor,
-        note: patch.statusNote || "",
-      });
-    }
-
-    const existingFormatted = formatClientRecord(existing);
-    const updatedNotesText = patch.notes !== undefined ? patch.notes : existingFormatted.notes;
-    const updatedServices = patch.services !== undefined ? patch.services : existingFormatted.services;
-    const updatedCustomServices = patch.customServices !== undefined ? patch.customServices : existingFormatted.customServices;
-
-    const encodedNotes = encodeNotes(updatedNotesText, updatedServices, updatedCustomServices);
-
-    const updatePayload = {
-      ...patch,
-      notes: encodedNotes,
-      statusHistory,
-      updatedAt: now,
-    };
-    delete updatePayload.statusNote;
-    delete updatePayload.services;
-    delete updatePayload.customServices;
-
-    const { data, error } = await supabase
-      .from("clients")
-      .update(updatePayload)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Update Client Error:", error);
-      throw error;
-    }
-    res.json(formatClientRecord(data));
+    const updatedClient = await googleSheetsService.updateClient(id, patch, actor);
+    res.json(updatedClient);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Update Client Error (Google Sheets):", error);
+    const status = error.message === "Client not found" ? 404 : 500;
+    res.status(status).json({ error: error.message });
   }
 };
 
+/**
+ * Archive client (marks Is Archived column as TRUE in Google Sheet)
+ */
 exports.archiveClient = async (req, res) => {
   try {
     if (!isSuperAdmin(req)) {
       return res.status(403).json({ error: "Access Denied: Only Super Admin can archive clients." });
     }
     const { id } = req.params;
-    const { data, error } = await supabase
-      .from("clients")
-      .update({ isArchived: true, updatedAt: new Date().toISOString() })
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: "Not found" });
-    res.json(data);
+    const actor = getActor(req);
+    const archived = await googleSheetsService.setArchive(id, true, actor);
+    res.json(archived);
   } catch (error) {
+    console.error("Archive Client Error (Google Sheets):", error);
     res.status(500).json({ error: error.message });
   }
 };
 
+/**
+ * Unarchive client (marks Is Archived column as FALSE in Google Sheet)
+ */
 exports.unarchiveClient = async (req, res) => {
   try {
     if (!isSuperAdmin(req)) {
       return res.status(403).json({ error: "Access Denied: Only Super Admin can restore clients." });
     }
     const { id } = req.params;
-    const { data, error } = await supabase
-      .from("clients")
-      .update({ isArchived: false, updatedAt: new Date().toISOString() })
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: "Not found" });
-    res.json(data);
+    const actor = getActor(req);
+    const restored = await googleSheetsService.setArchive(id, false, actor);
+    res.json(restored);
   } catch (error) {
+    console.error("Unarchive Client Error (Google Sheets):", error);
     res.status(500).json({ error: error.message });
   }
 };
 
+/**
+ * Permanently delete client row from Google Sheet
+ */
 exports.deleteClient = async (req, res) => {
   try {
     if (!isSuperAdmin(req)) {
       return res.status(403).json({ error: "Access Denied: Only Super Admin can permanently delete clients." });
     }
     const { id } = req.params;
-    const { error } = await supabase.from("clients").delete().eq("id", id);
-    if (error) throw error;
-    res.json({ message: "Client deleted successfully" });
+    const result = await googleSheetsService.deleteClient(id);
+    res.json(result);
   } catch (error) {
+    console.error("Delete Client Error (Google Sheets):", error);
     res.status(500).json({ error: error.message });
   }
 };
