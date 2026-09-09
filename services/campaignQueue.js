@@ -9,7 +9,7 @@
 const { sendEmail } = require('./brevoService');
 
 class CampaignQueueWorker {
-  constructor(supabase, baseUrl = 'http://localhost:5002') {
+  constructor(supabase, baseUrl = process.env.BACKEND_URL || process.env.BASE_URL || 'https://auxosys-backend.onrender.com') {
     this.supabase = supabase;
     this.baseUrl = baseUrl;
     this.timer = null;

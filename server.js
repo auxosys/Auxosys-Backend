@@ -34,23 +34,18 @@ const PORT = process.env.PORT || 5002;
 
 app.use(cors({
   origin: function (origin, callback) {
-    const allowedOrigins = [
-      "https://www.auxosys.com", 
-      "https://admin.auxosys.com", 
-      "https://verify.auxosys.com",
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://localhost:3002",
-      "https://auxosys.com",
-      "https://www.auxosys.com",
-      "https://admin.auxosys.com"
-    ];
     if (!origin) return callback(null, true);
-    if (origin.endsWith(".vercel.app") || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
+    const norm = origin.toLowerCase();
+    if (
+      norm.includes("auxosys.com") ||
+      norm.includes("onrender.com") ||
+      norm.endsWith(".vercel.app") ||
+      norm.includes("localhost") ||
+      norm.includes("127.0.0.1")
+    ) {
+      return callback(null, true);
     }
+    return callback(null, false);
   },
   credentials: true
 }));
