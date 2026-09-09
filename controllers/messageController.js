@@ -229,6 +229,17 @@ async function listMessages(req, res) {
         body_text: msgBodyText,
         body_html: msgBodyHtml,
         has_attachments: Array.isArray(meta.attachments) && meta.attachments.length > 0,
+        attachments: (Array.isArray(meta.attachments) && meta.attachments.length > 0)
+          ? meta.attachments.map((att, idx) => {
+              if (typeof att === 'string') return { id: idx, filename: att, name: att, url: '#' };
+              return {
+                id: att.id || idx,
+                filename: att.filename || att.name || 'attachment',
+                name: att.name || att.filename || 'attachment',
+                url: att.url || att.path || '#'
+              };
+            })
+          : [],
         is_read: !isInbox || !!l.opened_at,
         is_starred: false,
         received_at: l.replied_at || l.sent_at || l.created_at,
@@ -691,6 +702,17 @@ async function getMessage(req, res) {
         body_text: msgBodyText,
         body_html: msgBodyHtml,
         has_attachments: Array.isArray(meta.attachments) && meta.attachments.length > 0,
+        attachments: (Array.isArray(meta.attachments) && meta.attachments.length > 0)
+          ? meta.attachments.map((att, idx) => {
+              if (typeof att === 'string') return { id: idx, filename: att, name: att, url: '#' };
+              return {
+                id: att.id || idx,
+                filename: att.filename || att.name || 'attachment',
+                name: att.name || att.filename || 'attachment',
+                url: att.url || att.path || '#'
+              };
+            })
+          : [],
         is_read: true,
         is_starred: log.status === 'starred',
         received_at: log.replied_at || log.sent_at || log.created_at,

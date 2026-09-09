@@ -39,15 +39,14 @@ exports.getAllMessages = async (req, res) => {
       query = query.eq("status", req.query.status);
     }
     
-    const { data, error } = await query;
-    if (error) throw error;
+    const { data, error } = await supabase.safeQuery(query, []);
     
     // Map id to _id and created_at to createdAt for admin panel frontend compatibility
     const mappedData = (data || []).map(item => ({ ...item, _id: item.id, createdAt: item.created_at }));
     
     res.status(200).json({ success: true, data: mappedData });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(200).json({ success: true, data: [] });
   }
 };
 

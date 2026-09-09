@@ -234,6 +234,69 @@ async function appendDraft(mailboxRow, supabase, { to, subject, html, text }) {
   }
 }
 
+/** Appends a sent email message to Gmail's [Gmail]/Sent Mail folder via IMAP. */
+async function appendSentToGmailIMAP({ senderName, senderEmail, recipientEmail, subject, htmlContent, textContent, attachments }) {
+  let client = null;
+  try {
+    const MailComposer = require('nodemailer/lib/mail-composer');
+    const user = process.env.GMAIL_SMTP_USER || 'auxosys@gmail.com';
+    const pass = process.env.GMAIL_APP_PASSWORD || 'jeetytntyzjwwtwb';
+
+    client = new ImapFlow({
+      host: 'imap.gmail.com',
+      port: 993,
+      secure: true,
+      auth: { user, pass },
+      logger: false,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+    });
+
+    client.on('error', (err) => {
+      console.warn('[ImapFlow socket warning handled]:', err.message);
+    });
+
+    await client.connect();
+
+    const mailOptions = {
+      from: senderName ? `"${senderName}" <${senderEmail}>` : senderEmail,
+      to: recipientEmail,
+      subject: subject || '(No Subject)',
+      html: htmlContent || textContent || '',
+      text: textContent || '',
+      attachments: (attachments || []).map((a) => {
+        if (typeof a === 'string') return { filename: a, content: a };
+        return {
+          filename: a.name || a.filename || 'attachment',
+          content: typeof a.content === 'string' ? Buffer.from(a.content, 'base64') : a.content,
+          contentType: a.contentType || undefined,
+        };
+      }),
+    };
+
+    const composer = new MailComposer(mailOptions);
+    const messageBuffer = await composer.compile().build();
+
+    const lock = await client.getMailboxLock('[Gmail]/Sent Mail');
+    try {
+      await client.append('[Gmail]/Sent Mail', messageBuffer, ['\\Seen']);
+    } finally {
+      lock.release();
+    }
+  } catch (err) {
+    console.warn('[GmailIMAP] Sent Mail append warning:', err.message);
+  } finally {
+    if (client) {
+      try {
+        await client.logout();
+      } catch (e) {
+        try { client.close(); } catch (e2) {}
+      }
+    }
+  }
+}
+
 module.exports = {
   openConnection,
   listFolders,
@@ -243,4 +306,6 @@ module.exports = {
   setStarredFlag,
   moveMessage,
   appendDraft,
+  appendSentToGmailIMAP,
 };
+

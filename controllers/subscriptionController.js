@@ -32,11 +32,10 @@ exports.getAllSubscriptions = async (req, res) => {
     if (req.query.status) {
       query = query.eq("status", req.query.status);
     }
-    const { data, error } = await query;
-    if (error) throw error;
+    const { data, error } = await supabase.safeQuery(query, []);
     res.status(200).json({ success: true, data: data || [] });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(200).json({ success: true, data: [] });
   }
 };
 

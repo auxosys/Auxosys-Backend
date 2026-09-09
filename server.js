@@ -1,7 +1,10 @@
 require("dotenv").config();
+const dns = require("dns");
+try { dns.setDefaultResultOrder("ipv4first"); } catch (e) {}
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
+
 const path = require("path");
 const fs = require("fs");
 
@@ -141,14 +144,24 @@ const mailboxRoutes = require("./routes/mailboxes");
 const messageRoutes = require("./routes/messages");
 const supabaseClient = require("./config/supabaseClient");
 const { CampaignQueueWorker } = require("./services/campaignQueue");
+const { syncGmailPastMessagesInternal } = require("./controllers/messageController");
+
 const campaignWorker = new CampaignQueueWorker(supabaseClient);
 campaignWorker.start();
+
+// 2-Way Real-time Gmail Sync Worker (every 30 seconds)
+setInterval(() => {
+  syncGmailPastMessagesInternal(supabaseClient, 50, 'ALL').catch(err => {
+    console.warn('[GmailSyncWorker] Periodic sync warning:', err.message);
+  });
+}, 30000);
 
 app.use("/api/mailboxes", mailboxRoutes);
 app.use("/api/mailboxes", messageRoutes);
 app.use("/api/outreach", makeOutreachRouter(supabaseClient));
 app.use("/api/track", makeTrackingRouter(supabaseClient));
 app.use("/api/webhooks", makeWebhookRouter());
+
 
 // Mock notifications
 app.get("/notifications/count", (req, res) => res.json({ count: 0 }));

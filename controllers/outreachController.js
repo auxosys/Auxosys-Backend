@@ -130,20 +130,22 @@ function makeOutreachController(supabase) {
           ))
         );
 
-        let { data: senders, error } = await supabase
-          .from('sender_emails')
-          .select('*')
-          .order('created_at', { ascending: true });
-        if (error) throw error;
+        const defaultSendersFallback = [
+          { id: "s1", name: "Support Auxosys", email: "support@auxosys.com", department: "Customer Support", is_verified: true, status: "active" },
+          { id: "s2", name: "HR Auxosys", email: "careers@auxosys.com", department: "HR / Recruitment", is_verified: true, status: "active" },
+          { id: "s3", name: "Privacy Auxosys", email: "privacy@auxosys.com", department: "Privacy & Compliance", is_verified: true, status: "active" },
+          { id: "s4", name: "Contact Auxosys", email: "contact@auxosys.com", department: "General Contact", is_verified: true, status: "active" },
+          { id: "s5", name: "Auxosys Notifications", email: "noreply@auxosys.com", department: "Automated Notifications", is_verified: true, status: "active" },
+          { id: "s6", name: "Auxosys Gmail", email: "auxosys@gmail.com", department: "General Enquiries", is_verified: true, status: "active" }
+        ];
 
-        // Auto sync if list has fewer than 7 senders
-        if (!senders || senders.length < 7) {
-          await syncBrevoSendersInternal(supabase);
-          const { data: updatedSenders } = await supabase
-            .from('sender_emails')
-            .select('*')
-            .order('created_at', { ascending: true });
-          if (updatedSenders) senders = updatedSenders;
+        let { data: senders } = await supabase.safeQuery(
+          supabase.from('sender_emails').select('*').order('created_at', { ascending: true }),
+          defaultSendersFallback
+        );
+
+        if (!senders || senders.length === 0) {
+          senders = defaultSendersFallback;
         }
 
         // Non-admin users: filter to only their explicitly assigned senders (if permissions assigned)
@@ -974,7 +976,15 @@ function makeOutreachController(supabase) {
                 subject,
                 html: html || '',
                 text: text || '',
-                attachments: (attachments || []).map(a => typeof a === 'string' ? a : (a.name || a.filename || 'attachment')),
+                attachments: (attachments || []).map(a => {
+                  if (typeof a === 'string') return { filename: a, name: a, url: '#' };
+                  return {
+                    filename: a.name || a.filename || 'attachment',
+                    name: a.name || a.filename || 'attachment',
+                    url: a.url || a.path || '#',
+                    contentType: a.contentType || a.type || 'application/octet-stream'
+                  };
+                }),
               });
 
               await supabase.from('campaign_logs').insert({

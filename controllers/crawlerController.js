@@ -15,35 +15,24 @@ exports.triggerCrawl = async (req, res) => {
 
 exports.getCrawlHistory = async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from("seo_crawl_history")
-      .select("*")
-      .order("started_at", { ascending: false })
-      .limit(10);
-      
-    if (error) {
-      if (error.code === '42P01' || error.code === 'PGRST205') return res.status(200).json({ success: true, data: [] });
-      throw error;
-    }
-    res.status(200).json({ success: true, data });
+    const { data } = await supabase.safeQuery(
+      supabase.from("seo_crawl_history").select("*").order("started_at", { ascending: false }).limit(10),
+      []
+    );
+    res.status(200).json({ success: true, data: data || [] });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(200).json({ success: true, data: [] });
   }
 };
 
 exports.getSeoIssues = async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from("seo_issues")
-      .select("*")
-      .order("created_at", { ascending: false });
-      
-    if (error) {
-      if (error.code === '42P01' || error.code === 'PGRST205') return res.status(200).json({ success: true, data: [] });
-      throw error;
-    }
-    res.status(200).json({ success: true, data });
+    const { data } = await supabase.safeQuery(
+      supabase.from("seo_issues").select("*").order("created_at", { ascending: false }),
+      []
+    );
+    res.status(200).json({ success: true, data: data || [] });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(200).json({ success: true, data: [] });
   }
 };

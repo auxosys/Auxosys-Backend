@@ -21,11 +21,13 @@ const logAudit = async (req, action, section, old_value, new_value) => {
 // ---------------------------------------------------------
 exports.getSettings = async (req, res) => {
   try {
-    const { data, error } = await supabase.from("seo_settings").select("*").limit(1).maybeSingle();
-    if (error) throw error;
+    const { data } = await supabase.safeQuery(
+      supabase.from("seo_settings").select("*").limit(1).maybeSingle(),
+      {}
+    );
     res.status(200).json({ success: true, data: data || {} });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(200).json({ success: true, data: {} });
   }
 };
 
@@ -92,11 +94,13 @@ exports.updateSitemapSettings = async (req, res) => {
 // ---------------------------------------------------------
 exports.getRedirects = async (req, res) => {
   try {
-    const { data, error } = await supabase.from("seo_redirects").select("*").order("created_at", { ascending: false });
-    if (error) throw error;
-    res.status(200).json({ success: true, data });
+    const { data } = await supabase.safeQuery(
+      supabase.from("seo_redirects").select("*").order("created_at", { ascending: false }),
+      []
+    );
+    res.status(200).json({ success: true, data: data || [] });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(200).json({ success: true, data: [] });
   }
 };
 

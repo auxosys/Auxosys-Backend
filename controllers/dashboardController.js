@@ -39,16 +39,16 @@ exports.getDashboard = async (req, res) => {
     }
 
     // 1. Get total contacts (from contact_messages)
-    const { count: totalContacts, data: allContacts } = await supabase.from("contact_messages").select("id, name, subject, status, created_at", { count: "exact" });
+    const { count: totalContacts, data: allContacts } = await supabase.safeQuery(supabase.from("contact_messages").select("id, name, subject, status, created_at", { count: "exact" }));
     
     // 2. Get active jobs
-    const { count: activeJobs, data: allJobs } = await supabase.from("careers").select("id, created_at", { count: "exact" }).eq("status", "Active");
+    const { count: activeJobs, data: allJobs } = await supabase.safeQuery(supabase.from("careers").select("id, created_at", { count: "exact" }).eq("status", "Active"));
 
     // 3. Get total job applications
-    const { count: jobApplications, data: allApps } = await supabase.from("applications").select("id, firstName, lastName, status, created_at, job:careers(title)", { count: "exact" });
+    const { count: jobApplications, data: allApps } = await supabase.safeQuery(supabase.from("applications").select("id, firstName, lastName, status, created_at, job:careers(title)", { count: "exact" }));
 
     // 4. Get news/case studies
-    const { count: newsCount, data: allNews } = await supabase.from("news").select("id, created_at", { count: "exact" });
+    const { count: newsCount, data: allNews } = await supabase.safeQuery(supabase.from("news").select("id, created_at", { count: "exact" }));
     
     // Trends
     const contactTrend = calculateTrend(allContacts || []);
