@@ -66,10 +66,11 @@ async function sendEmail({ senderName, senderEmail, recipientEmail, subject, htm
   const targetProvider = (provider || '').toLowerCase();
   const gmailPass = smtpPass || process.env.GMAIL_APP_PASSWORD;
   const gmailUser = smtpUser || process.env.GMAIL_SMTP_USER || 'auxosys@gmail.com';
-  const isBrevoExplicit = targetProvider === 'brevo' || (Array.isArray(tags) && tags.some(t => t.includes('brevo') || t.includes('campaign') || t.includes('automated')));
+  const isAuxosysDomain = senderEmail && senderEmail.toLowerCase().endsWith('@auxosys.com');
+  const isBrevoExplicit = targetProvider === 'brevo' || isAuxosysDomain || (Array.isArray(tags) && tags.some(t => t.includes('brevo') || t.includes('campaign') || t.includes('automated')));
 
-  // 1. Send via Direct Gmail SMTP (0 Brevo Limit Used) for direct emails
-  if ((targetProvider === 'gmail' || (gmailPass && !isBrevoExplicit)) && targetProvider !== 'brevo') {
+  // 1. Send via Direct Gmail SMTP (0 Brevo Limit Used) ONLY for @gmail.com or explicit gmail requests
+  if ((targetProvider === 'gmail' || (gmailPass && !isBrevoExplicit)) && targetProvider !== 'brevo' && !isAuxosysDomain) {
     try {
       const gmailTransporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
