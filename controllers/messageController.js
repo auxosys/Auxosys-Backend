@@ -20,6 +20,10 @@ function isSuperAdmin(user) {
   return email === 'admin@auxosys.com' || email === 'auxosys@gmail.com';
 }
 
+let isSyncInProgress = false;
+let lastBackgroundSyncTimestamp = 0;
+const BACKGROUND_SYNC_COOLDOWN_MS = 60000; // 60s cooldown between auto background reconciliations
+
 /**
  * GET /api/mailboxes/:mailboxId/messages?folder=INBOX&page=1&pageSize=25&unreadOnly=&q=
  */
@@ -51,74 +55,60 @@ async function listMessages(req, res) {
       }
     }
 
-    // Fallback / Outreach Integration: Serve messages from campaign_logs & sender_emails
-    // Automatically sync from real Gmail IMAP if table is currently empty
-    const { count: logCheckCount } = await supabase.from('campaign_logs').select('id', { count: 'exact', head: true });
-    if (!logCheckCount || logCheckCount === 0) {
-      try {
-        await syncGmailPastMessagesInternal(supabase, 50);
-      } catch (sErr) {
-        console.warn('Auto Gmail sync warning:', sErr.message);
-      }
-    }
+    const normFolder = (folder || 'INBOX').toUpperCase();
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const sizeNum = Math.max(1, parseInt(pageSize, 10) || 25);
+    const from = (pageNum - 1) * sizeNum;
+    const to = from + sizeNum - 1;
 
-    let query = supabase
-      .from('campaign_logs')
-      .select('*, sender_emails(id, email, name)', { count: 'exact' });
-
-    if (allowedSenderIds) {
-      query = query.in('sender_email_id', allowedSenderIds);
+    // Trigger non-blocking background IMAP sync if cooldown has elapsed
+    if (!isSyncInProgress && (Date.now() - lastBackgroundSyncTimestamp > BACKGROUND_SYNC_COOLDOWN_MS)) {
+      lastBackgroundSyncTimestamp = Date.now();
+      syncGmailPastMessagesInternal(supabase, 100, normFolder).catch(sErr => {
+        console.warn('Background Gmail sync warning:', sErr.message);
+      });
     }
 
     const isAll = !mailboxId || mailboxId === 'all';
+    let filterSenderId = null;
     if (!isAll) {
       const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(mailboxId);
       if (isUuid) {
-        query = query.eq('sender_email_id', mailboxId);
+        filterSenderId = mailboxId;
       } else {
         const { data: s } = await supabase.from('sender_emails').select('id').eq('email', mailboxId).maybeSingle();
-        if (s) {
-          query = query.eq('sender_email_id', s.id);
-        }
+        if (s) filterSenderId = s.id;
       }
     }
 
-    const normFolder = (folder || 'INBOX').toUpperCase();
-    if (normFolder === 'INBOX') {
-      // Show replies received from contacts or test responses
-      query = query.or('replied_at.not.is.null,status.eq.replied');
-    } else if (normFolder === 'SENT') {
-      // Outbound emails sent via Brevo / Compose ONLY (exclude incoming emails with status='replied')
-      query = query.in('status', ['sent', 'delivered', 'opened', 'clicked', 'sending']).neq('status', 'replied');
-    } else if (normFolder === 'DRAFTS' || normFolder === 'STARRED' || normFolder === 'TRASH') {
+    if (normFolder === 'DRAFTS' || normFolder === 'STARRED' || normFolder === 'TRASH') {
       let draftQuery = supabase
         .from('campaign_logs')
-        .select('*, sender_emails(id, email, name)', { count: 'exact' });
+        .select('id, sender_email_id, recipient_email, status, replied_at, created_at, sent_at, opened_at, brevo_message_id, error_message, sender_emails(id, email, name)');
 
-      if (normFolder === 'DRAFTS') {
-        draftQuery = draftQuery.eq('status', 'draft');
-      } else if (normFolder === 'STARRED') {
-        draftQuery = draftQuery.eq('status', 'starred');
-      } else if (normFolder === 'TRASH') {
-        draftQuery = draftQuery.eq('status', 'trash');
-      }
+      if (normFolder === 'DRAFTS') draftQuery = draftQuery.eq('status', 'draft');
+      else if (normFolder === 'STARRED') draftQuery = draftQuery.eq('status', 'starred');
+      else if (normFolder === 'TRASH') draftQuery = draftQuery.eq('status', 'trash');
 
       if (allowedSenderIds && allowedSenderIds.length > 0) {
         draftQuery = draftQuery.or(`sender_email_id.in.(${allowedSenderIds.join(',')}),sender_email_id.is.null`);
       }
-
-      if (!isAll) {
-        const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(mailboxId);
-        if (isUuid) {
-          draftQuery = draftQuery.or(`sender_email_id.eq.${mailboxId},sender_email_id.is.null`);
-        }
+      if (filterSenderId) {
+        draftQuery = draftQuery.or(`sender_email_id.eq.${filterSenderId},sender_email_id.is.null`);
       }
-
       if (q) {
         draftQuery = draftQuery.or(`recipient_email.ilike.%${q}%,error_message.ilike.%${q}%`);
       }
 
-      const { data: logs, count: logCount } = await draftQuery.order('created_at', { ascending: false });
+      let countQuery = supabase.from('campaign_logs').select('id', { count: 'exact', head: true });
+      if (normFolder === 'DRAFTS') countQuery = countQuery.eq('status', 'draft');
+      else if (normFolder === 'STARRED') countQuery = countQuery.eq('status', 'starred');
+      else if (normFolder === 'TRASH') countQuery = countQuery.eq('status', 'trash');
+
+      const [{ data: logs }, { count: logCount }] = await Promise.all([
+        draftQuery.order('created_at', { ascending: false }).range(from, to),
+        countQuery
+      ]);
 
       const formatted = (logs || []).map(l => {
         let meta = {};
@@ -152,19 +142,52 @@ async function listMessages(req, res) {
 
       return res.json({
         messages: formatted,
-        total: logCount || formatted.length,
-        page: Number(page),
-        pageSize: Number(pageSize)
+        total: logCount !== null && logCount !== undefined ? logCount : formatted.length,
+        page: pageNum,
+        pageSize: sizeNum
       });
+    }
+
+    let query = supabase
+      .from('campaign_logs')
+      .select('id, sender_email_id, recipient_email, status, replied_at, created_at, sent_at, opened_at, brevo_message_id, error_message, sender_emails(id, email, name)');
+
+    let countQuery = supabase.from('campaign_logs').select('id', { count: 'exact', head: true });
+
+    if (allowedSenderIds) {
+      query = query.in('sender_email_id', allowedSenderIds);
+      countQuery = countQuery.in('sender_email_id', allowedSenderIds);
+    }
+
+    if (filterSenderId) {
+      query = query.eq('sender_email_id', filterSenderId);
+      countQuery = countQuery.eq('sender_email_id', filterSenderId);
+    }
+
+    if (normFolder === 'INBOX') {
+      // Incoming Gmail emails in campaign_logs are indexed with status='replied'
+      query = query.eq('status', 'replied');
+      countQuery = countQuery.eq('status', 'replied');
+    } else if (normFolder === 'SENT') {
+      // Outbound emails sent via Brevo / Compose ONLY
+      query = query.in('status', ['sent', 'delivered', 'opened', 'clicked', 'sending']).neq('status', 'trash');
+      countQuery = countQuery.in('status', ['sent', 'delivered', 'opened', 'clicked', 'sending']).neq('status', 'trash');
     }
 
     if (q) {
       query = query.or(`recipient_email.ilike.%${q}%,error_message.ilike.%${q}%`);
+      countQuery = countQuery.or(`recipient_email.ilike.%${q}%,error_message.ilike.%${q}%`);
     }
 
-    query = query.order('created_at', { ascending: false });
+    const [{ data: logs, error: queryErr }, { count: logCount }] = await Promise.all([
+      query.order('created_at', { ascending: false }).range(from, to),
+      countQuery
+    ]);
 
-    const { data: logs, count: logCount } = await query;
+    if (queryErr) {
+      console.error('listMessages query error:', queryErr.message);
+      return res.json({ messages: [], total: 0, page: pageNum, pageSize: sizeNum });
+    }
 
     const formattedMessages = (logs || []).map(l => {
       let meta = {};
@@ -172,13 +195,12 @@ async function listMessages(req, res) {
         try { meta = JSON.parse(l.error_message); } catch (e) {}
       }
 
-      // Check if message is an incoming email (synced from Gmail inbox or received reply)
       const isIncoming = l.status === 'replied' || (!!meta.from_address && meta.from_address !== l.sender_emails?.email);
-      const isInbox = folder === 'INBOX' || isIncoming;
+      const isInbox = normFolder === 'INBOX' || isIncoming;
 
       const msgSubject = meta.subject || l.subject || (isInbox ? `Re: Auxosys Services` : `Outreach Message`);
       const msgBodyText = meta.body_text || meta.text || (isInbox
-        ? `Thank you for reaching out. We received your reply regarding "${msgSubject}".`
+        ? `Thank you for reaching out. We received your message regarding "${msgSubject}".`
         : `Sent email to ${l.recipient_email} with subject: ${msgSubject}. Status: ${l.status}.`);
       const msgBodyHtml = meta.body_html || meta.html || (isInbox
         ? `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a;"><p>Hello Auxosys Team,</p><p>Thank you for reaching out. I received your message regarding <strong>${msgSubject}</strong> and would like to proceed.</p><br/><p>Best regards,<br/><strong>${l.recipient_email}</strong></p></div>`
@@ -194,7 +216,7 @@ async function listMessages(req, res) {
       return {
         id: l.id,
         mailbox_id: mailboxId,
-        folder: isInbox ? 'INBOX' : folder,
+        folder: isInbox ? 'INBOX' : normFolder,
         status: isInbox ? (l.status === 'replied_by_admin' ? 'replied' : 'received') : l.status,
         message_id: l.brevo_message_id || l.id,
         from_name: fromName,
@@ -216,9 +238,9 @@ async function listMessages(req, res) {
 
     return res.json({
       messages: formattedMessages,
-      total: logCount || formattedMessages.length,
-      page: Number(page),
-      pageSize: Number(pageSize)
+      total: logCount !== null && logCount !== undefined ? logCount : formattedMessages.length,
+      page: pageNum,
+      pageSize: sizeNum
     });
   } catch (err) {
     console.error('listMessages failed:', err);
@@ -228,7 +250,14 @@ async function listMessages(req, res) {
 
 const { ImapFlow } = require('imapflow');
 
-async function syncGmailPastMessagesInternal(supabase, limit = 50) {
+async function syncGmailPastMessagesInternal(supabase, limit = 100, targetFolder = 'ALL') {
+  if (isSyncInProgress) {
+    console.log('[syncGmailPastMessagesInternal] Sync already in progress, skipping concurrent call.');
+    return 0;
+  }
+  isSyncInProgress = true;
+
+  let client = null;
   try {
     const { simpleParser } = require('mailparser');
     const user = process.env.GMAIL_SMTP_USER || 'auxosys@gmail.com';
@@ -266,115 +295,295 @@ async function syncGmailPastMessagesInternal(supabase, limit = 50) {
       return defaultSenderId;
     }
 
-    const client = new ImapFlow({
+    client = new ImapFlow({
       host: 'imap.gmail.com',
       port: 993,
       secure: true,
       auth: { user, pass },
       logger: false,
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000,
+    });
+
+    // Guard against unhandled socket error event crashes in Node.js
+    client.on('error', (err) => {
+      console.warn('[ImapFlow socket warning handled]:', err.message);
     });
 
     await client.connect();
-    const lock = await client.getMailboxLock('INBOX');
+
+    const mailboxes = await client.list();
+    const trashBox = mailboxes.find(m => m.specialUse === '\\Trash' || /trash|bin/i.test(m.path))?.path || '[Gmail]/Bin';
+    const sentBox = mailboxes.find(m => m.specialUse === '\\Sent' || /sent/i.test(m.path))?.path || '[Gmail]/Sent Mail';
+    const inboxBox = 'INBOX';
+
     let count = 0;
+
+    // 1. RECONCILE TRASH: Always scan recent Gmail Trash messages so deleted emails are removed in real-time
     try {
-      const uids = await client.search({ all: true }, { uid: true });
-      const sorted = uids.sort((a, b) => b - a);
-      const page = sorted.slice(0, limit);
+      const trashLock = await client.getMailboxLock(trashBox);
+      const trashedMessageIds = new Set();
+      const trashedPairs = [];
+      try {
+        const uids = await client.search({ all: true }, { uid: true });
+        const recent = uids.sort((a, b) => b - a).slice(0, 100);
 
-      const records = [];
-      for await (const msg of client.fetch(page, { envelope: true, flags: true, source: true }, { uid: true })) {
-        const env = msg.envelope || {};
-        const senderAddress = env.from?.[0]?.address || 'unknown@domain.com';
-        const senderName = env.from?.[0]?.name || senderAddress.split('@')[0];
-        const subject = env.subject || '(No Subject)';
-        const dateIso = env.date ? new Date(env.date).toISOString() : new Date().toISOString();
-        const msgId = env.messageId || `gmail-${msg.uid}`;
-
-        let toAddress = env.to?.[0]?.address || '';
-        let toName = env.to?.[0]?.name || '';
-
-        const { data: existing } = await supabase
-          .from('campaign_logs')
-          .select('id, error_message')
-          .eq('brevo_message_id', msgId)
-          .maybeSingle();
-
-        let msgBodyText = '';
-        let msgBodyHtml = '';
-        if (msg.source) {
-          try {
-            const parsed = await simpleParser(msg.source);
-            if (!toAddress) {
-              toAddress = parsed.to?.value?.[0]?.address || parsed.to?.text || '';
-            }
-            if (!toName) {
-              toName = parsed.to?.value?.[0]?.name || '';
-            }
-            msgBodyText = parsed.text || '';
-            msgBodyHtml = parsed.html || (msgBodyText ? `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a; white-space: pre-wrap;">${msgBodyText}</div>` : '');
-          } catch (pErr) {
-            console.warn('Mailparser failed for UID', msg.uid, pErr.message);
+        for await (const msg of client.fetch(recent, { envelope: true }, { uid: true })) {
+          const env = msg.envelope || {};
+          if (env.messageId) {
+            trashedMessageIds.add(env.messageId.trim());
+            trashedMessageIds.add(env.messageId.replace(/^<|>$/g, '').trim());
+          }
+          if (env.subject && env.to?.[0]?.address) {
+            trashedPairs.push({
+              subject: env.subject.trim().toLowerCase(),
+              to: env.to[0].address.trim().toLowerCase(),
+            });
+          }
+          if (env.subject && env.from?.[0]?.address) {
+            trashedPairs.push({
+              subject: env.subject.trim().toLowerCase(),
+              to: env.from[0].address.trim().toLowerCase(),
+            });
           }
         }
-
-        if (!toAddress) {
-          toAddress = 'contact@auxosys.com';
-        }
-
-        const targetSenderId = findMatchingSenderId(toAddress);
-
-        if (!msgBodyText && !msgBodyHtml) {
-          msgBodyText = `Email from ${senderName} (${senderAddress}): ${subject}`;
-          msgBodyHtml = `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a;"><p>${subject}</p></div>`;
-        }
-
-        const meta = {
-          subject: subject,
-          text: msgBodyText,
-          body_text: msgBodyText,
-          body_html: msgBodyHtml,
-          from_name: senderName,
-          from_address: senderAddress,
-          to_address: toAddress,
-          to_name: toName,
-        };
-
-        if (!existing) {
-          records.push({
-            sender_email_id: targetSenderId,
-            recipient_email: senderAddress,
-            status: 'replied',
-            replied_at: dateIso,
-            created_at: dateIso,
-            delivered_at: dateIso,
-            error_message: JSON.stringify(meta),
-            brevo_message_id: msgId,
-          });
-        } else {
-          // Update placeholder or existing log with parsed meta & targetSenderId
-          await supabase
-            .from('campaign_logs')
-            .update({ 
-              sender_email_id: targetSenderId,
-              error_message: JSON.stringify(meta) 
-            })
-            .eq('id', existing.id);
-        }
+      } finally {
+        trashLock.release();
       }
 
-      if (records.length > 0) {
-        const { data } = await supabase.from('campaign_logs').insert(records).select();
-        count = (data ? data.length : records.length) + count;
+      if (trashedMessageIds.size > 0 || trashedPairs.length > 0) {
+        const { data: activeLogs } = await supabase
+          .from('campaign_logs')
+          .select('id, brevo_message_id, recipient_email, error_message, status')
+          .neq('status', 'trash');
+
+        const idsToTrash = (activeLogs || []).filter(log => {
+          if (log.brevo_message_id) {
+            const raw = log.brevo_message_id.trim();
+            const stripped = raw.replace(/^<|>$/g, '').trim();
+            if (trashedMessageIds.has(raw) || trashedMessageIds.has(stripped)) {
+              return true;
+            }
+          }
+          let meta = {};
+          if (log.error_message && log.error_message.startsWith('{')) {
+            try { meta = JSON.parse(log.error_message); } catch (e) {}
+          }
+          const subj = (meta.subject || '').trim().toLowerCase();
+          const recip = (log.recipient_email || '').trim().toLowerCase();
+          if (subj && recip) {
+            return trashedPairs.some(p => p.subject === subj && p.to === recip);
+          }
+          return false;
+        }).map(l => l.id);
+
+        if (idsToTrash.length > 0) {
+          await supabase.from('campaign_logs').update({ status: 'trash' }).in('id', idsToTrash);
+          count += idsToTrash.length;
+        }
+
+        if (trashedMessageIds.size > 0) {
+          try {
+            await supabase.from('mailbox_messages').update({ folder: 'TRASH' }).in('message_id', Array.from(trashedMessageIds));
+          } catch (mErr) {}
+        }
       }
-    } finally {
-      lock.release();
+    } catch (trashErr) {
+      console.warn('[GmailTrashSync] Non-fatal trash reconciliation warning:', trashErr.message);
     }
-    await client.logout();
+
+    const normTarget = (targetFolder || 'ALL').toUpperCase();
+
+    // 2. SYNC SENT: When syncing all or specifically the SENT folder
+    if (normTarget === 'ALL' || normTarget === 'SENT') {
+      try {
+        const sentLock = await client.getMailboxLock(sentBox);
+        try {
+          const uids = await client.search({ all: true }, { uid: true });
+          const sorted = uids.sort((a, b) => b - a);
+          const page = sorted.slice(0, limit);
+
+          const sentRecords = [];
+          for await (const msg of client.fetch(page, { envelope: true, source: true }, { uid: true })) {
+            const env = msg.envelope || {};
+            const toAddress = env.to?.[0]?.address || '';
+            const toName = env.to?.[0]?.name || toAddress.split('@')[0];
+            const senderAddress = env.from?.[0]?.address || 'sales@auxosys.com';
+            const senderName = env.from?.[0]?.name || 'Auxosys';
+            const subject = env.subject || '(No Subject)';
+            const dateIso = env.date ? new Date(env.date).toISOString() : new Date().toISOString();
+            const msgId = env.messageId || `gmail-sent-${msg.uid}`;
+
+            const { data: existing } = await supabase
+              .from('campaign_logs')
+              .select('id')
+              .eq('brevo_message_id', msgId)
+              .maybeSingle();
+
+            if (!existing && toAddress) {
+              let msgBodyText = '';
+              let msgBodyHtml = '';
+              if (msg.source) {
+                try {
+                  const parsed = await simpleParser(msg.source);
+                  msgBodyText = parsed.text || '';
+                  msgBodyHtml = parsed.html || (msgBodyText ? `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a; white-space: pre-wrap;">${msgBodyText}</div>` : '');
+                } catch (pErr) {}
+              }
+
+              const targetSenderId = findMatchingSenderId(senderAddress);
+              const meta = {
+                subject,
+                text: msgBodyText,
+                body_text: msgBodyText,
+                body_html: msgBodyHtml,
+                from_name: senderName,
+                from_address: senderAddress,
+                to_address: toAddress,
+                to_name: toName,
+              };
+
+              sentRecords.push({
+                sender_email_id: targetSenderId,
+                recipient_email: toAddress,
+                status: 'sent',
+                sent_at: dateIso,
+                created_at: dateIso,
+                delivered_at: dateIso,
+                error_message: JSON.stringify(meta),
+                brevo_message_id: msgId,
+              });
+            }
+          }
+
+          if (sentRecords.length > 0) {
+            const { data } = await supabase.from('campaign_logs').insert(sentRecords).select();
+            count += (data ? data.length : sentRecords.length);
+          }
+        } finally {
+          sentLock.release();
+        }
+      } catch (sentErr) {
+        console.warn('[GmailSentSync] Non-fatal sent sync warning:', sentErr.message);
+      }
+    }
+
+    // 3. SYNC INBOX: When syncing all or specifically the INBOX folder
+    if (normTarget === 'ALL' || normTarget === 'INBOX') {
+      try {
+        const inboxLock = await client.getMailboxLock(inboxBox);
+        try {
+          const uids = await client.search({ all: true }, { uid: true });
+          const sorted = uids.sort((a, b) => b - a);
+          const page = sorted.slice(0, limit);
+
+          const records = [];
+          for await (const msg of client.fetch(page, { envelope: true, flags: true, source: true }, { uid: true })) {
+            const env = msg.envelope || {};
+            const senderAddress = env.from?.[0]?.address || 'unknown@domain.com';
+            const senderName = env.from?.[0]?.name || senderAddress.split('@')[0];
+            const subject = env.subject || '(No Subject)';
+            const dateIso = env.date ? new Date(env.date).toISOString() : new Date().toISOString();
+            const msgId = env.messageId || `gmail-${msg.uid}`;
+
+            let toAddress = env.to?.[0]?.address || '';
+            let toName = env.to?.[0]?.name || '';
+
+            const { data: existing } = await supabase
+              .from('campaign_logs')
+              .select('id, error_message')
+              .eq('brevo_message_id', msgId)
+              .maybeSingle();
+
+            let msgBodyText = '';
+            let msgBodyHtml = '';
+            if (msg.source) {
+              try {
+                const parsed = await simpleParser(msg.source);
+                if (!toAddress) {
+                  toAddress = parsed.to?.value?.[0]?.address || parsed.to?.text || '';
+                }
+                if (!toName) {
+                  toName = parsed.to?.value?.[0]?.name || '';
+                }
+                msgBodyText = parsed.text || '';
+                msgBodyHtml = parsed.html || (msgBodyText ? `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a; white-space: pre-wrap;">${msgBodyText}</div>` : '');
+              } catch (pErr) {
+                console.warn('Mailparser failed for UID', msg.uid, pErr.message);
+              }
+            }
+
+            if (!toAddress) {
+              toAddress = 'contact@auxosys.com';
+            }
+
+            const targetSenderId = findMatchingSenderId(toAddress);
+
+            if (!msgBodyText && !msgBodyHtml) {
+              msgBodyText = `Email from ${senderName} (${senderAddress}): ${subject}`;
+              msgBodyHtml = `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a;"><p>${subject}</p></div>`;
+            }
+
+            const meta = {
+              subject: subject,
+              text: msgBodyText,
+              body_text: msgBodyText,
+              body_html: msgBodyHtml,
+              from_name: senderName,
+              from_address: senderAddress,
+              to_address: toAddress,
+              to_name: toName,
+            };
+
+            if (!existing) {
+              records.push({
+                sender_email_id: targetSenderId,
+                recipient_email: senderAddress,
+                status: 'replied',
+                replied_at: dateIso,
+                created_at: dateIso,
+                delivered_at: dateIso,
+                error_message: JSON.stringify(meta),
+                brevo_message_id: msgId,
+              });
+            } else {
+              // Update placeholder or existing log with parsed meta & targetSenderId
+              await supabase
+                .from('campaign_logs')
+                .update({ 
+                  sender_email_id: targetSenderId,
+                  error_message: JSON.stringify(meta) 
+                })
+                .eq('id', existing.id);
+            }
+          }
+
+          if (records.length > 0) {
+            const { data } = await supabase.from('campaign_logs').insert(records).select();
+            count = (data ? data.length : records.length) + count;
+          }
+        } finally {
+          inboxLock.release();
+        }
+      } catch (inboxErr) {
+        console.warn('[GmailInboxSync] Non-fatal inbox sync warning:', inboxErr.message);
+      }
+    }
+
     return count;
   } catch (err) {
     console.error('syncGmailPastMessagesInternal error:', err.message);
     return 0;
+  } finally {
+    if (client) {
+      try {
+        await client.logout();
+      } catch (e) {
+        try { client.close(); } catch (e2) {}
+      }
+    }
+    isSyncInProgress = false;
   }
 }
 
@@ -383,7 +592,8 @@ async function syncGmailPastMessagesInternal(supabase, limit = 50) {
  */
 async function syncFolder(req, res) {
   try {
-    const count = await syncGmailPastMessagesInternal(supabase, 50);
+    const targetFolder = (req.query.folder || 'ALL').toUpperCase();
+    const count = await syncGmailPastMessagesInternal(supabase, 50, targetFolder);
     res.json({ synced: count });
   } catch (err) {
     res.status(500).json({ error: 'Failed to sync folder.' });
@@ -593,8 +803,55 @@ async function moveMessage(req, res) {
       return res.json({ moved: true });
     }
 
-    const { data: log } = await supabase.from('campaign_logs').select('id').eq('id', messageId).maybeSingle();
+    const { data: log } = await supabase.from('campaign_logs').select('id, brevo_message_id, recipient_email').eq('id', messageId).maybeSingle();
     if (log) {
+      const isTrash = toFolder.toUpperCase() === 'TRASH' || toFolder.toUpperCase() === 'DELETE';
+      const newStatus = isTrash ? 'trash' : 'sent';
+      await supabase.from('campaign_logs').update({ status: newStatus }).eq('id', messageId);
+
+      // Async try to move to Trash in Gmail IMAP
+      if (isTrash) {
+        (async () => {
+          try {
+            const user = process.env.GMAIL_SMTP_USER || 'auxosys@gmail.com';
+            const pass = process.env.GMAIL_APP_PASSWORD || 'jeetytntyzjwwtwb';
+            const client = new ImapFlow({
+              host: 'imap.gmail.com',
+              port: 993,
+              secure: true,
+              auth: { user, pass },
+              logger: false,
+            });
+            await client.connect();
+            const mailboxes = await client.list();
+            const trashBox = mailboxes.find(m => m.specialUse === '\\Trash' || /trash|bin/i.test(m.path))?.path || '[Gmail]/Bin';
+            const sentBox = mailboxes.find(m => m.specialUse === '\\Sent' || /sent/i.test(m.path))?.path || '[Gmail]/Sent Mail';
+
+            for (const folderToCheck of [sentBox, 'INBOX']) {
+              try {
+                const lock = await client.getMailboxLock(folderToCheck);
+                try {
+                  const targetMsgId = log.brevo_message_id;
+                  if (targetMsgId) {
+                    const cleanId = targetMsgId.replace(/^<|>$/g, '').trim();
+                    const uids = await client.search({ header: { 'message-id': cleanId } }, { uid: true });
+                    if (uids && uids.length > 0) {
+                      await client.messageMove(uids, trashBox, { uid: true });
+                      break;
+                    }
+                  }
+                } finally {
+                  lock.release();
+                }
+              } catch (e) {}
+            }
+            await client.logout();
+          } catch (imapErr) {
+            console.warn('[GmailIMAPMove] Non-fatal IMAP move warning:', imapErr.message);
+          }
+        })();
+      }
+
       return res.json({ moved: true });
     }
 

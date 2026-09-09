@@ -118,11 +118,15 @@ class GoogleSearchConsoleService {
       };
 
     } catch (error) {
-      console.error('GSC API Error:', error);
-      // Fallback to error status instead of returning 500
+      const msg = error.message || String(error);
+      if (msg.includes('has not been used in project') || msg.includes('disabled') || error.code === 403) {
+        console.warn('[GoogleSearchConsoleService] GSC API disabled in GCP project:', msg.split('\n')[0]);
+      } else {
+        console.error('[GoogleSearchConsoleService] GSC API Error:', msg.split('\n')[0]);
+      }
       return {
         success: true,
-        status: 'error',
+        status: 'disabled',
         data: null
       };
     }
@@ -150,8 +154,9 @@ class GoogleSearchConsoleService {
 
       return { success: true, status: response.data.rows && response.data.rows.length > 0 ? 'connected' : 'insufficient_data', data: response.data.rows || [] };
     } catch (error) {
-      console.error('GSC Page API Error:', error);
-      return { success: true, status: 'error', data: null };
+      const msg = error.message || String(error);
+      console.warn('[GoogleSearchConsoleService] GSC Page API warning:', msg.split('\n')[0]);
+      return { success: true, status: 'disabled', data: [] };
     }
   }
 }
