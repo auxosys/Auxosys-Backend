@@ -14,7 +14,7 @@ class CampaignQueueWorker {
     this.baseUrl = baseUrl;
     this.timer = null;
     this.isProcessing = false;
-    this.checkIntervalMs = 8000;
+    this.checkIntervalMs = 30000; // 30s interval to reduce idle database load
   }
 
   start() {
@@ -37,7 +37,7 @@ class CampaignQueueWorker {
     try {
       const { data: campaigns, error } = await this.supabase
         .from('campaigns')
-        .select('*, sender_emails(*), templates(*)')
+        .select('id, name, status, sender_email_id, mailbox_id, template_id, subject, daily_limit, min_delay_sec, max_delay_sec, last_sent_at, track_clicks, track_opens, sender_emails(id, email, name), templates(id, subject, body_html, body_text)')
         .eq('status', 'sending');
 
       if (error || !campaigns || campaigns.length === 0) {
@@ -61,7 +61,7 @@ class CampaignQueueWorker {
       const targetSenderId = campaign.sender_email_id || campaign.mailbox_id;
       const { data: s } = await this.supabase
         .from('sender_emails')
-        .select('*')
+        .select('id, email, name')
         .eq('id', targetSenderId)
         .maybeSingle();
       sender = s;
@@ -99,7 +99,7 @@ class CampaignQueueWorker {
     // Fetch next queued log
     const { data: logList } = await this.supabase
       .from('campaign_logs')
-      .select('*, contacts(*)')
+      .select('id, campaign_id, contact_id, recipient_email, status, retry_count, contacts(id, email, first_name, last_name, company, job_title, status)')
       .eq('campaign_id', campaign.id)
       .in('status', ['queued', 'retrying'])
       .order('created_at', { ascending: true })
@@ -124,7 +124,7 @@ class CampaignQueueWorker {
     if (!contact && log.contact_id) {
       const { data: c } = await this.supabase
         .from('contacts')
-        .select('*')
+        .select('id, email, first_name, last_name, company, job_title, status')
         .eq('id', log.contact_id)
         .maybeSingle();
       contact = c;
@@ -132,7 +132,7 @@ class CampaignQueueWorker {
     if (!contact && log.recipient_email) {
       const { data: c } = await this.supabase
         .from('contacts')
-        .select('*')
+        .select('id, email, first_name, last_name, company, job_title, status')
         .eq('email', log.recipient_email)
         .maybeSingle();
       contact = c;
@@ -143,7 +143,7 @@ class CampaignQueueWorker {
     if (!template && campaign.template_id) {
       const { data: t } = await this.supabase
         .from('templates')
-        .select('*')
+        .select('id, subject, body_html, body_text')
         .eq('id', campaign.template_id)
         .maybeSingle();
       template = t;

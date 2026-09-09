@@ -2,7 +2,7 @@ const { supabase } = require('../services/supabaseClient');
 const imap = require('../services/imapService');
 
 async function getMailboxOr404(mailboxId, res) {
-  const { data, error } = await supabase.from('mailboxes').select('*').eq('id', mailboxId).single();
+  const { data, error } = await supabase.from('mailboxes').select('id, email_address, display_name, status').eq('id', mailboxId).single();
   if (error || !data) {
     res.status(404).json({ error: 'Mailbox not found.' });
     return null;
@@ -25,12 +25,12 @@ let lastBackgroundSyncTimestamp = 0;
 const BACKGROUND_SYNC_COOLDOWN_MS = 60000; // 60s cooldown between auto background reconciliations
 
 /**
- * GET /api/mailboxes/:mailboxId/messages?folder=INBOX&page=1&pageSize=25&unreadOnly=&q=
+ * GET /api/mailboxes/:mailboxId/messages?folder=INBOX&page=1&pageSize=20&unreadOnly=&q=
  */
 async function listMessages(req, res) {
   try {
     const { mailboxId } = req.params;
-    const { folder = 'INBOX', page = 1, pageSize = 25, unreadOnly, q } = req.query;
+    const { folder = 'INBOX', page = 1, pageSize = 20, unreadOnly, q } = req.query;
     const user = req.user;
     const isSuper = isSuperAdmin(user);
 
@@ -57,7 +57,7 @@ async function listMessages(req, res) {
 
     const normFolder = (folder || 'INBOX').toUpperCase();
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const sizeNum = Math.max(1, parseInt(pageSize, 10) || 25);
+    const sizeNum = Math.max(1, parseInt(pageSize, 10) || 20);
     const from = (pageNum - 1) * sizeNum;
     const to = from + sizeNum - 1;
 
@@ -117,7 +117,6 @@ async function listMessages(req, res) {
         }
         const msgSubject = meta.subject || l.subject || '(Draft)';
         const msgBodyText = meta.body_text || meta.text || '';
-        const msgBodyHtml = meta.body_html || meta.html || '';
 
         return {
           id: l.id,
@@ -130,8 +129,8 @@ async function listMessages(req, res) {
           to_addresses: [{ address: l.recipient_email || '' }],
           subject: msgSubject,
           snippet: msgBodyText ? msgBodyText.substring(0, 100) : '(Draft)',
-          body_text: msgBodyText,
-          body_html: msgBodyHtml,
+          body_text: msgBodyText ? msgBodyText.substring(0, 150) : '',
+          body_html: '', // Lightweight list response to minimize egress
           has_attachments: false,
           is_read: true,
           is_starred: normFolder === 'STARRED',
@@ -199,12 +198,9 @@ async function listMessages(req, res) {
       const isInbox = normFolder === 'INBOX' || isIncoming;
 
       const msgSubject = meta.subject || l.subject || (isInbox ? `Re: Auxosys Services` : `Outreach Message`);
-      const msgBodyText = meta.body_text || meta.text || (isInbox
-        ? `Thank you for reaching out. We received your message regarding "${msgSubject}".`
-        : `Sent email to ${l.recipient_email} with subject: ${msgSubject}. Status: ${l.status}.`);
-      const msgBodyHtml = meta.body_html || meta.html || (isInbox
-        ? `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a;"><p>Hello Auxosys Team,</p><p>Thank you for reaching out. I received your message regarding <strong>${msgSubject}</strong> and would like to proceed.</p><br/><p>Best regards,<br/><strong>${l.recipient_email}</strong></p></div>`
-        : `<div style="font-family: sans-serif; line-height: 1.6; color: #0f172a;"><p>Sent email via Brevo to <strong>${l.recipient_email}</strong>.</p><p>Subject: ${msgSubject}</p><p>Status: <span style="color: #16a34a; font-weight: 600;">${l.status}</span></p></div>`);
+      const snippetText = meta.text || meta.body_text || (isInbox 
+        ? `Lead reply received from ${l.recipient_email}` 
+        : `Sent email via Brevo to ${l.recipient_email}`);
 
       const fromName = isInbox 
         ? (meta.from_name && meta.from_name !== l.recipient_email ? meta.from_name : (l.recipient_email.includes('dpritam2708') ? 'Pritam Das' : l.recipient_email.split('@')[0]))
@@ -223,11 +219,9 @@ async function listMessages(req, res) {
         from_address: fromAddress,
         to_addresses: [{ address: toAddr, name: toName }],
         subject: msgSubject,
-        snippet: meta.text ? meta.text.substring(0, 100) : (isInbox 
-          ? `Lead reply received from ${fromName}` 
-          : `Sent email via Brevo to ${l.recipient_email}`),
-        body_text: msgBodyText,
-        body_html: msgBodyHtml,
+        snippet: typeof snippetText === 'string' ? snippetText.substring(0, 100) : '',
+        body_text: typeof snippetText === 'string' ? snippetText.substring(0, 150) : '',
+        body_html: '', // Lightweight list response to minimize egress
         has_attachments: Array.isArray(meta.attachments) && meta.attachments.length > 0,
         attachments: (Array.isArray(meta.attachments) && meta.attachments.length > 0)
           ? meta.attachments.map((att, idx) => {

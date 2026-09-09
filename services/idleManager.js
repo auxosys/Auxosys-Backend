@@ -38,7 +38,7 @@ class IdleManager {
   async startAll() {
     const { data: mailboxes } = await this.supabase
       .from('mailboxes')
-      .select('*')
+      .select('id, email_address, auth_type, app_password, imap_host, imap_port, status')
       .in('status', ['connected', 'connecting']);
 
     for (const mailbox of mailboxes || []) {
@@ -50,7 +50,11 @@ class IdleManager {
   async start(mailboxId) {
     if (this.connections.has(mailboxId)) return; // already running
 
-    const { data: mailbox } = await this.supabase.from('mailboxes').select('*').eq('id', mailboxId).single();
+    const { data: mailbox } = await this.supabase
+      .from('mailboxes')
+      .select('id, email_address, auth_type, app_password, imap_host, imap_port, status')
+      .eq('id', mailboxId)
+      .single();
     if (!mailbox) return;
 
     this.connections.set(mailboxId, { client: null, reconnectDelay: RECONNECT_DELAY_MS });

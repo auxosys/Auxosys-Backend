@@ -765,12 +765,12 @@ function makeOutreachController(supabase) {
 
         let contacts = [];
         if (campaign.list_id) {
-          const { data: mapRows } = await supabase.from('contact_list_map').select('contact_id, contacts(*)').eq('list_id', campaign.list_id);
+          const { data: mapRows } = await supabase.from('contact_list_map').select('contact_id, contacts(id, email, first_name, last_name, company, job_title, status)').eq('list_id', campaign.list_id);
           contacts = (mapRows || []).map(m => m.contacts).filter(Boolean);
         }
 
         if (contacts.length === 0) {
-          const { data: allContacts } = await supabase.from('contacts').select('*');
+          const { data: allContacts } = await supabase.from('contacts').select('id, email, first_name, last_name, company, job_title, status');
           contacts = allContacts || [];
         }
 
@@ -912,7 +912,7 @@ function makeOutreachController(supabase) {
         let sender;
         const { data: sById } = await supabase
           .from('sender_emails')
-          .select('*')
+          .select('id, name, email, department, brevo_sender_id, reply_to_email, is_verified')
           .eq('id', senderEmailId)
           .maybeSingle();
 
@@ -921,7 +921,7 @@ function makeOutreachController(supabase) {
         } else {
           const { data: sByEmail } = await supabase
             .from('sender_emails')
-            .select('*')
+            .select('id, name, email, department, brevo_sender_id, reply_to_email, is_verified')
             .eq('email', senderEmailId)
             .maybeSingle();
           sender = sByEmail;
