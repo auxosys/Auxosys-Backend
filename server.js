@@ -149,12 +149,8 @@ const { syncGmailPastMessagesInternal } = require("./controllers/messageControll
 const campaignWorker = new CampaignQueueWorker(supabaseClient);
 campaignWorker.start();
 
-// 2-Way Real-time Gmail Sync Worker (every 30 seconds)
-setInterval(() => {
-  syncGmailPastMessagesInternal(supabaseClient, 50, 'ALL').catch(err => {
-    console.warn('[GmailSyncWorker] Periodic sync warning:', err.message);
-  });
-}, 30000);
+// Real-time Gmail push events are handled via IMAP IDLE in idleManager.js
+// Manual synchronization is available via POST /api/mailboxes/:id/sync
 
 app.use("/api/mailboxes", mailboxRoutes);
 app.use("/api/mailboxes", messageRoutes);

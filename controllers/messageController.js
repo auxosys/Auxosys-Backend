@@ -64,7 +64,7 @@ async function listMessages(req, res) {
     // Trigger non-blocking background IMAP sync if cooldown has elapsed
     if (!isSyncInProgress && (Date.now() - lastBackgroundSyncTimestamp > BACKGROUND_SYNC_COOLDOWN_MS)) {
       lastBackgroundSyncTimestamp = Date.now();
-      syncGmailPastMessagesInternal(supabase, 100, normFolder).catch(sErr => {
+      syncGmailPastMessagesInternal(supabase, 20, normFolder).catch(sErr => {
         console.warn('Background Gmail sync warning:', sErr.message);
       });
     }
