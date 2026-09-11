@@ -463,7 +463,7 @@ async function syncGmailPastMessagesInternal(supabase, limit = 100, targetFolder
           }
 
           if (sentRecords.length > 0) {
-            const { data } = await supabase.from('campaign_logs').insert(sentRecords).select();
+            const { data } = await supabase.from('campaign_logs').insert(sentRecords).select('id');
             count += (data ? data.length : sentRecords.length);
           }
         } finally {
@@ -552,8 +552,8 @@ async function syncGmailPastMessagesInternal(supabase, limit = 100, targetFolder
                 error_message: JSON.stringify(meta),
                 brevo_message_id: msgId,
               });
-            } else {
-              // Update placeholder or existing log with parsed meta & targetSenderId
+            } else if (!existing.error_message || existing.error_message === '{}') {
+              // Update placeholder log with parsed meta & targetSenderId if not already present
               await supabase
                 .from('campaign_logs')
                 .update({ 
@@ -565,7 +565,7 @@ async function syncGmailPastMessagesInternal(supabase, limit = 100, targetFolder
           }
 
           if (records.length > 0) {
-            const { data } = await supabase.from('campaign_logs').insert(records).select();
+            const { data } = await supabase.from('campaign_logs').insert(records).select('id');
             count = (data ? data.length : records.length) + count;
           }
         } finally {
